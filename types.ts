@@ -1,3 +1,4 @@
+
 export interface User {
   id: string;
   name: string;
@@ -37,6 +38,15 @@ export interface DiseaseAnalysis {
   nextSteps: string;
 }
 
+export interface ScanRecord {
+  id: string;
+  date: string;
+  image: string; // Base64
+  crop: string;
+  analysis: DiseaseAnalysis;
+  location: string;
+}
+
 export interface NearbyMarket {
   name: string;
   distance: string;
@@ -65,6 +75,7 @@ export enum AppView {
   ADVISORY = 'ADVISORY',
   MARKET = 'MARKET',
   FARM_MANAGEMENT = 'FARM_MANAGEMENT',
+  HISTORY = 'HISTORY',
   WEATHER = 'WEATHER',
   SETTINGS = 'SETTINGS'
 }

@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { LayoutDashboard, Stethoscope, MessageSquareText, TrendingUp, Tractor, LogOut, MapPin, Moon, Sun, Settings, Mic, X } from 'lucide-react';
+import { LayoutDashboard, Stethoscope, MessageSquareText, TrendingUp, Tractor, LogOut, MapPin, Moon, Sun, Settings, Mic, X, History } from 'lucide-react';
 import { AppView } from '../types';
 import { getCurrentUser, logoutUser } from '../services/authService';
 import { useTheme } from '../contexts/ThemeContext';
@@ -46,8 +47,9 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }) => {
       else if (command.includes('advisory') || command.includes('chat') || command.includes('ask')) setView(AppView.ADVISORY);
       else if (command.includes('market') || command.includes('price')) setView(AppView.MARKET);
       else if (command.includes('farm') || command.includes('crops')) setView(AppView.FARM_MANAGEMENT);
+      else if (command.includes('history') || command.includes('records')) setView(AppView.HISTORY);
       else if (command.includes('settings')) setView(AppView.SETTINGS);
-      else if (command.includes('weather')) setView(AppView.DASHBOARD); // Weather is on dashboard
+      else if (command.includes('weather')) setView(AppView.DASHBOARD); 
       
       setIsListening(false);
     };
@@ -68,6 +70,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }) => {
     { id: AppView.ADVISORY, label: t('advisory'), icon: MessageSquareText },
     { id: AppView.MARKET, label: t('market'), icon: TrendingUp },
     { id: AppView.FARM_MANAGEMENT, label: t('myFarm'), icon: Tractor },
+    { id: AppView.HISTORY, label: "History", icon: History },
     { id: AppView.SETTINGS, label: t('settings'), icon: Settings },
   ];
 

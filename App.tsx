@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
@@ -5,6 +6,7 @@ import DiseaseDetector from './components/DiseaseDetector';
 import AdvisoryChat from './components/AdvisoryChat';
 import MarketPrices from './components/MarketPrices';
 import FarmManager from './components/FarmManager';
+import History from './components/History';
 import Settings from './components/Settings';
 import Auth from './components/Auth';
 import { AppView, User } from './types';
@@ -46,6 +48,8 @@ function AppContent() {
         return <MarketPrices />;
       case AppView.FARM_MANAGEMENT:
         return <FarmManager />;
+      case AppView.HISTORY:
+        return <History />;
       case AppView.SETTINGS:
         return <Settings onUpdateUser={handleUserUpdate} />;
       default:
