@@ -1,81 +1,117 @@
+
 import { User } from '../types';
 
 const USER_STORAGE_KEY = 'krishi_net_user';
 const USERS_DB_KEY = 'krishi_net_users_db';
+const OTP_STORAGE_KEY = 'krishi_net_temp_otp';
 
 export const getCurrentUser = (): User | null => {
   const stored = localStorage.getItem(USER_STORAGE_KEY);
   return stored ? JSON.parse(stored) : null;
 };
 
-// Returns the OTP code for UI display (Simulation)
-export const sendOTP = async (identifier: string): Promise<string> => {
+// Simulation of sending OTP via SMS/Email Provider
+export const sendOTP = async (identifier: string): Promise<void> => {
   await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate network delay
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  console.log(`[Krishi-Net SMS Gateway] OTP for ${identifier}: ${otp}`);
-  return otp; 
+  
+  // In a real app, this would call your backend API (Twilio/SendGrid)
+  // For this demo, we log it to console for the developer
+  console.log(`[Krishi-Net Notification Gateway] 📨 OTP sent to ${identifier}: ${otp}`);
+  
+  // Store OTP temporarily for verification (Simulating server-side session)
+  localStorage.setItem(OTP_STORAGE_KEY, JSON.stringify({ identifier, code: otp, expires: Date.now() + 300000 })); // 5 mins
 };
 
-export const verifyOTP = async (inputOtp: string, sentOtp: string): Promise<boolean> => {
+export const verifyOTP = async (identifier: string, inputOtp: string): Promise<boolean> => {
   await new Promise(resolve => setTimeout(resolve, 1000));
-  return inputOtp === sentOtp;
-};
+  
+  const storedData = localStorage.getItem(OTP_STORAGE_KEY);
+  if (!storedData) return false;
 
-export const loginWithGoogle = async (): Promise<User> => {
-  await new Promise(resolve => setTimeout(resolve, 1500));
-  const user: User = {
-    id: 'google_' + Date.now(),
-    name: 'Google User',
-    phone: '',
-    email: 'user@gmail.com',
-    location: 'New Delhi, India',
-    state: 'Delhi',
-    joinedDate: new Date().toISOString()
-  };
-  localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
-  return user;
+  const { identifier: savedId, code, expires } = JSON.parse(storedData);
+  
+  if (savedId !== identifier) return false;
+  if (Date.now() > expires) return false;
+  
+  if (inputOtp === code) {
+    localStorage.removeItem(OTP_STORAGE_KEY);
+    return true;
+  }
+  return false;
 };
 
 export const checkUserExists = async (identifier: string): Promise<boolean> => {
   const dbRaw = localStorage.getItem(USERS_DB_KEY);
   const db = dbRaw ? JSON.parse(dbRaw) : {};
-  // Check against phone or email
   return Object.values(db).some((u: any) => u.phone === identifier || u.email === identifier);
 };
 
-export const loginUser = async (identifier: string): Promise<User> => {
+export const loginUser = async (identifier: string, password?: string): Promise<User> => {
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
   const dbRaw = localStorage.getItem(USERS_DB_KEY);
   const db = dbRaw ? JSON.parse(dbRaw) : {};
   
   // Find user by phone or email
-  const user = Object.values(db).find((u: any) => u.phone === identifier || u.email === identifier) as User;
+  const user = Object.values(db).find((u: any) => u.phone === identifier || u.email === identifier) as any;
   
-  if (user) {
-    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
-    return user;
-  } else {
-    throw new Error("USER_NOT_FOUND");
+  if (!user) {
+    throw new Error("Account not found. Please Sign Up.");
   }
+
+  // If password provided, verify it
+  if (password && user.password !== password) {
+    throw new Error("Incorrect password.");
+  }
+  
+  const { password: _, ...safeUser } = user; // Remove password from session
+  localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(safeUser));
+  return safeUser;
 };
 
-export const registerUser = async (user: User): Promise<User> => {
-  await new Promise(resolve => setTimeout(resolve, 1000));
+export const registerUser = async (userData: any): Promise<User> => {
+  await new Promise(resolve => setTimeout(resolve, 1500));
 
-  const newUser = { ...user, joinedDate: new Date().toISOString() };
+  const newUser = { 
+    id: 'user_' + Date.now(),
+    name: userData.name,
+    phone: userData.phone,
+    email: userData.email,
+    location: userData.location,
+    state: userData.state,
+    joinedDate: new Date().toISOString(),
+    password: userData.password, // In real app, this must be hashed!
+    isOnboarded: false // New users start as not onboarded
+  };
 
-  // Save to "DB"
   const dbRaw = localStorage.getItem(USERS_DB_KEY);
   const db = dbRaw ? JSON.parse(dbRaw) : {};
   
-  // Use phone as primary key, or email if phone missing (shouldn't happen in flow)
   const key = newUser.phone || newUser.email;
   db[key] = newUser;
   
   localStorage.setItem(USERS_DB_KEY, JSON.stringify(db));
 
-  // Set session
-  localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(newUser));
-  return newUser;
+  const { password: _, ...safeUser } = newUser;
+  localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(safeUser));
+  return safeUser;
+};
+
+export const completeOnboarding = async (user: User): Promise<User> => {
+  const updatedUser = { ...user, isOnboarded: true };
+  localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser));
+  
+  const dbRaw = localStorage.getItem(USERS_DB_KEY);
+  if (dbRaw) {
+    const db = JSON.parse(dbRaw);
+    const key = Object.keys(db).find(k => db[k].id === user.id);
+    if (key) {
+      db[key] = { ...db[key], isOnboarded: true };
+      localStorage.setItem(USERS_DB_KEY, JSON.stringify(db));
+    }
+  }
+  return updatedUser;
 };
 
 export const logoutUser = () => {
@@ -83,17 +119,14 @@ export const logoutUser = () => {
 };
 
 export const updateUserProfile = async (updatedUser: User): Promise<User> => {
-  // Update Session
   localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser));
   
-  // Update DB
   const dbRaw = localStorage.getItem(USERS_DB_KEY);
   if (dbRaw) {
     const db = JSON.parse(dbRaw);
-    // Find keys that match this user id to update
     const key = Object.keys(db).find(k => db[k].id === updatedUser.id);
     if (key) {
-      db[key] = updatedUser;
+      db[key] = { ...db[key], ...updatedUser };
       localStorage.setItem(USERS_DB_KEY, JSON.stringify(db));
     }
   }

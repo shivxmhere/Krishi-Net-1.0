@@ -1,7 +1,8 @@
+
 import React, { useState } from 'react';
 import { User } from '../types';
-import { loginUser, registerUser, sendOTP, verifyOTP, loginWithGoogle, checkUserExists } from '../services/authService';
-import { MapPin, Phone, User as UserIcon, Mail, Loader2, Sprout, ArrowRight, ArrowLeft, MessageCircle } from 'lucide-react';
+import { loginUser, registerUser, sendOTP, verifyOTP, checkUserExists } from '../services/authService';
+import { MapPin, Phone, User as UserIcon, Mail, Loader2, ArrowLeft, Lock, Eye, EyeOff, Check, ShieldCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Background from './Background';
 
@@ -9,88 +10,82 @@ interface AuthProps {
   onLogin: (user: User) => void;
 }
 
+type AuthView = 'LOGIN' | 'REGISTER' | 'OTP';
+
 const Auth: React.FC<AuthProps> = ({ onLogin }) => {
-  const [mode, setMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
-  const [step, setStep] = useState<'INPUT' | 'OTP'>('INPUT');
+  const [view, setView] = useState<AuthView>('LOGIN');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [generatedOtp, setGeneratedOtp] = useState<string | null>(null);
-  const [showOtpToast, setShowOtpToast] = useState(false);
-
-  // Form Data
-  const [identifier, setIdentifier] = useState(''); // Phone or Email for login
-  const [formData, setFormData] = useState({
+  
+  // Login State
+  const [loginMethod, setLoginMethod] = useState<'PASSWORD' | 'OTP'>('PASSWORD');
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
+  
+  // Register State
+  const [regData, setRegData] = useState({
     name: '',
     phone: '',
     email: '',
     location: '',
-    state: ''
+    state: '',
+    password: '',
+    agreeTerms: false
   });
-  const [otpInput, setOtpInput] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
+  // OTP State
+  const [otpInput, setOtpInput] = useState('');
+  const [countdown, setCountdown] = useState(300);
+
+  // Helper: Password Strength
+  const getPasswordStrength = (pass: string) => {
+    let score = 0;
+    if (pass.length > 7) score++;
+    if (/[A-Z]/.test(pass)) score++;
+    if (/[0-9]/.test(pass)) score++;
+    if (/[^A-Za-z0-9]/.test(pass)) score++;
+    return score;
+  };
+  const strength = getPasswordStrength(regData.password);
+
+  // Actions
   const handleLocation = () => {
-    if(navigator.vibrate) navigator.vibrate(10);
     if (navigator.geolocation) {
       setLoading(true);
       navigator.geolocation.getCurrentPosition(
         async (position) => {
           try {
             const { latitude, longitude } = position.coords;
-            // Uses BigDataCloud Free API for reliable client-side reverse geocoding
             const response = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`);
             const data = await response.json();
-            
-            const city = data.city || data.locality || data.principalSubdivision || '';
-            const stateName = data.principalSubdivision || '';
-            const country = data.countryName || '';
-            
-            const formatted = [city, stateName, country].filter(Boolean).join(', ');
-            setFormData(prev => ({ ...prev, location: formatted, state: stateName }));
+            const loc = [data.city, data.principalSubdivision, data.countryName].filter(Boolean).join(', ');
+            setRegData(prev => ({ ...prev, location: loc, state: data.principalSubdivision }));
           } catch (err) {
-            setFormData(prev => ({ ...prev, location: `${position.coords.latitude}, ${position.coords.longitude}` }));
+            setRegData(prev => ({ ...prev, location: `${position.coords.latitude}, ${position.coords.longitude}` }));
           } finally {
             setLoading(false);
           }
         },
-        () => {
-          setError("Location access denied.");
-          setLoading(false);
-        }
+        () => setLoading(false)
       );
     }
   };
 
-  const initiateAuth = async (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-
     try {
-      if (mode === 'LOGIN') {
-        if (!identifier) throw new Error("Please enter Phone or Email");
-        
-        // Check if user exists
-        const exists = await checkUserExists(identifier);
-        if (!exists) throw new Error("Account not found. Please Sign Up.");
+      const exists = await checkUserExists(identifier);
+      if (!exists) throw new Error("Account not found. Please Sign Up.");
 
-        const code = await sendOTP(identifier);
-        setGeneratedOtp(code);
-        setShowOtpToast(true);
-        setStep('OTP');
+      if (loginMethod === 'PASSWORD') {
+        const user = await loginUser(identifier, password);
+        onLogin(user);
       } else {
-        // Register Mode
-        if (!formData.name || !formData.phone || !formData.location) {
-          throw new Error("Please fill required fields (Name, Phone, Location)");
-        }
-        
-        // Check if phone already registered
-        const exists = await checkUserExists(formData.phone);
-        if (exists) throw new Error("Phone number already registered. Please Login.");
-
-        const code = await sendOTP(formData.phone);
-        setGeneratedOtp(code);
-        setShowOtpToast(true);
-        setStep('OTP');
+        await sendOTP(identifier);
+        setView('OTP');
       }
     } catch (err: any) {
       setError(err.message);
@@ -99,28 +94,43 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
     }
   };
 
-  const verifyAndProceed = async (e: React.FormEvent) => {
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    if (!regData.name || !regData.phone || !regData.password) return setError("Required fields missing");
+    if (regData.password.length < 8) return setError("Password must be at least 8 characters");
+    if (!regData.agreeTerms) return setError("Please agree to Terms & Conditions");
+
+    setLoading(true);
+    try {
+      const exists = await checkUserExists(regData.phone);
+      if (exists) throw new Error("Phone already registered. Please Login.");
+      
+      await sendOTP(regData.phone);
+      setView('OTP');
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOTP = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
-
     try {
-      if (!generatedOtp) throw new Error("Session expired. Retry.");
-      
-      const isValid = await verifyOTP(otpInput, generatedOtp);
-      if (!isValid) throw new Error("Invalid OTP");
+      const target = view === 'OTP' && regData.phone ? regData.phone : identifier;
+      const isValid = await verifyOTP(target, otpInput);
+      if (!isValid) throw new Error("Invalid or Expired OTP");
 
-      if (mode === 'LOGIN') {
-        const user = await loginUser(identifier);
+      if (regData.phone) {
+        // Finishing Registration
+        const user = await registerUser(regData);
         onLogin(user);
       } else {
-        const newUser: User = {
-          id: 'user_' + Date.now(),
-          ...formData,
-          joinedDate: new Date().toISOString()
-        };
-        const created = await registerUser(newUser);
-        onLogin(created);
+        // Finishing Login
+        const user = await loginUser(identifier);
+        onLogin(user);
       }
     } catch (err: any) {
       setError(err.message);
@@ -130,199 +140,156 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 font-sans relative overflow-hidden bg-gradient-to-br from-agri-green-50 to-farm-blue-50">
+    <div className="min-h-screen flex items-center justify-center p-4 font-sans relative overflow-hidden bg-gray-50">
       <Background mode="day" />
-
-      {/* Mock SMS Notification */}
-      <AnimatePresence>
-        {showOtpToast && generatedOtp && (
-          <motion.div
-            initial={{ y: -100, opacity: 0 }}
-            animate={{ y: 20, opacity: 1 }}
-            exit={{ y: -100, opacity: 0 }}
-            className="fixed top-0 left-0 right-0 z-50 flex justify-center pointer-events-none"
-          >
-            <div className="bg-white shadow-2xl rounded-2xl p-4 border-2 border-black flex items-center gap-4 max-w-sm mx-4 pointer-events-auto">
-              <div className="bg-green-100 p-2 rounded-full border border-green-200">
-                <MessageCircle className="w-6 h-6 text-green-700" />
-              </div>
-              <div>
-                <p className="font-black text-black">Messages • Now</p>
-                <p className="text-black text-sm">Your Krishi-Net verification code is: <span className="font-mono font-black text-lg text-agri-green-600">{generatedOtp}</span></p>
-              </div>
-              <button onClick={() => setShowOtpToast(false)} className="text-gray-400 hover:text-black text-xs self-start font-bold">Dismiss</button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
       
       <motion.div 
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="bg-white/90 backdrop-blur-2xl w-full max-w-md rounded-[2.5rem] shadow-2xl border-4 border-agri-green-400 overflow-hidden relative z-10"
+        layout
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white/95 backdrop-blur-xl w-full max-w-md rounded-[2.5rem] shadow-2xl border border-white/50 relative z-10 overflow-hidden"
       >
+        {/* Header */}
+        <div className="p-8 pb-0 text-center">
+           <h1 className="text-2xl font-black text-gray-900 tracking-tight">Krishi-Net</h1>
+           <p className="text-green-600 font-bold text-xs uppercase tracking-widest mt-1">Smart Agriculture</p>
+        </div>
+
         <div className="p-8">
-          <div className="text-center mb-6">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-black shadow-xl shadow-agri-green-500/30 mb-4 border-4 border-agri-green-400">
-              <Sprout className="w-10 h-10 text-white" />
-            </div>
-            <h1 className="text-3xl font-black text-black">Krishi-Net</h1>
-            <p className="text-black font-semibold text-sm bg-agri-green-100 inline-block px-3 py-1 rounded-full mt-2">Smart Agriculture Platform</p>
-          </div>
-
-          {/* Tabs */}
-          {step === 'INPUT' && (
-            <div className="flex bg-gray-100 p-1 rounded-xl mb-6 border border-gray-200">
-              <button 
-                onClick={() => { setMode('LOGIN'); setError(''); }}
-                className={`flex-1 py-3 rounded-lg text-sm font-bold transition-all ${mode === 'LOGIN' ? 'bg-black text-white shadow-lg' : 'text-gray-500 hover:text-black'}`}
-              >
-                Sign In
-              </button>
-              <button 
-                onClick={() => { setMode('REGISTER'); setError(''); }}
-                className={`flex-1 py-3 rounded-lg text-sm font-bold transition-all ${mode === 'REGISTER' ? 'bg-black text-white shadow-lg' : 'text-gray-500 hover:text-black'}`}
-              >
-                Sign Up
-              </button>
-            </div>
-          )}
-
           {error && (
-            <div className="mb-4 p-3 bg-red-100 text-red-800 font-bold text-sm rounded-xl text-center border-2 border-red-200">
-              {error}
-            </div>
+            <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} className="bg-red-50 text-red-600 p-3 rounded-xl text-sm font-bold mb-6 flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4" /> {error}
+            </motion.div>
           )}
 
           <AnimatePresence mode="wait">
-            {step === 'INPUT' ? (
-              <motion.form
-                key="input"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                onSubmit={initiateAuth}
-                className="space-y-4"
+            {view === 'LOGIN' && (
+              <motion.form 
+                key="login"
+                initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 20, opacity: 0 }}
+                onSubmit={handleLoginSubmit} 
+                className="space-y-5"
               >
-                {mode === 'LOGIN' ? (
-                  <div className="relative group">
-                    <UserIcon className="absolute left-4 top-4 w-5 h-5 text-gray-500" />
-                    <input
-                      type="text"
-                      value={identifier}
-                      onChange={(e) => setIdentifier(e.target.value)}
-                      placeholder="Phone or Email"
-                      className="w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:ring-0 focus:border-black font-semibold text-black outline-none transition-colors"
-                    />
-                  </div>
-                ) : (
-                  <>
-                    <div className="relative">
-                      <UserIcon className="absolute left-4 top-4 w-5 h-5 text-gray-500" />
-                      <input
-                        type="text"
-                        value={formData.name}
-                        onChange={(e) => setFormData({...formData, name: e.target.value})}
-                        placeholder="Full Name"
-                        className="w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:ring-0 focus:border-black font-semibold text-black outline-none transition-colors"
-                      />
-                    </div>
-                    <div className="relative">
-                      <Phone className="absolute left-4 top-4 w-5 h-5 text-gray-500" />
-                      <input
-                        type="tel"
-                        value={formData.phone}
-                        onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                        placeholder="Mobile Number"
-                        className="w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:ring-0 focus:border-black font-semibold text-black outline-none transition-colors"
-                      />
-                    </div>
-                    <div className="relative">
-                      <Mail className="absolute left-4 top-4 w-5 h-5 text-gray-500" />
-                      <input
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => setFormData({...formData, email: e.target.value})}
-                        placeholder="Email (Optional)"
-                        className="w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:ring-0 focus:border-black font-semibold text-black outline-none transition-colors"
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      <div className="relative flex-1">
-                        <MapPin className="absolute left-4 top-4 w-5 h-5 text-gray-500" />
-                        <input
-                          type="text"
-                          value={formData.location}
-                          onChange={(e) => setFormData({...formData, location: e.target.value})}
-                          placeholder="City/Village"
-                          className="w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:ring-0 focus:border-black font-semibold text-black outline-none transition-colors"
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleLocation}
-                        className="p-4 bg-agri-green-100 text-agri-green-700 rounded-xl hover:bg-agri-green-200 transition-colors border-2 border-agri-green-200"
-                      >
-                        {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <MapPin className="w-5 h-5" />}
-                      </button>
-                    </div>
-                  </>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-4 bg-agri-green-600 text-white font-black rounded-xl shadow-xl hover:bg-agri-green-700 transition-all flex items-center justify-center gap-2 border-b-4 border-agri-green-800 active:border-b-0 active:translate-y-1"
-                >
-                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
-                    <>
-                      {mode === 'LOGIN' ? 'Send OTP' : 'Verify Phone'} 
-                      <ArrowRight className="w-5 h-5" />
-                    </>
-                  )}
-                </button>
-              </motion.form>
-            ) : (
-              <motion.form
-                key="otp"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                onSubmit={verifyAndProceed}
-                className="space-y-6"
-              >
-                <div className="text-center">
-                  <h3 className="text-xl font-black text-black">Verify Phone</h3>
-                  <p className="text-gray-500 text-sm mt-1 font-semibold">
-                    Enter the code sent to {mode === 'LOGIN' ? identifier : formData.phone}
-                  </p>
+                {/* Login Tabs */}
+                <div className="flex bg-gray-100 p-1 rounded-xl mb-4">
+                  <button type="button" onClick={() => setLoginMethod('PASSWORD')} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${loginMethod === 'PASSWORD' ? 'bg-white shadow text-black' : 'text-gray-400'}`}>Password</button>
+                  <button type="button" onClick={() => setLoginMethod('OTP')} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${loginMethod === 'OTP' ? 'bg-white shadow text-black' : 'text-gray-400'}`}>OTP</button>
                 </div>
 
-                <input
-                  type="text"
-                  value={otpInput}
-                  onChange={(e) => setOtpInput(e.target.value)}
-                  placeholder="123456"
-                  maxLength={6}
-                  className="w-full py-4 text-center text-3xl font-mono font-bold tracking-widest bg-gray-50 border-2 border-gray-200 rounded-xl focus:ring-0 focus:border-black outline-none text-black"
-                  autoFocus
-                />
+                <div className="relative">
+                  <UserIcon className="absolute left-4 top-4 w-5 h-5 text-gray-400" />
+                  <input type="text" placeholder="Phone or Email" value={identifier} onChange={e => setIdentifier(e.target.value)} className="w-full pl-12 pr-4 py-4 bg-gray-50 rounded-xl font-bold border-2 border-transparent focus:bg-white focus:border-green-500 outline-none transition-all" />
+                </div>
+
+                {loginMethod === 'PASSWORD' && (
+                  <div className="relative">
+                    <Lock className="absolute left-4 top-4 w-5 h-5 text-gray-400" />
+                    <input type={showPassword ? "text" : "password"} placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} className="w-full pl-12 pr-12 py-4 bg-gray-50 rounded-xl font-bold border-2 border-transparent focus:bg-white focus:border-green-500 outline-none transition-all" />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-4 text-gray-400 hover:text-black">
+                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
+                  </div>
+                )}
+
+                <button type="submit" disabled={loading} className="w-full py-4 bg-green-600 text-white rounded-xl font-black shadow-lg shadow-green-200 hover:bg-green-700 active:scale-95 transition-all flex justify-center">
+                   {loading ? <Loader2 className="animate-spin" /> : (loginMethod === 'PASSWORD' ? 'Sign In' : 'Send OTP')}
+                </button>
+                
+                <p className="text-center text-gray-500 text-sm font-medium">
+                  New here? <button type="button" onClick={() => setView('REGISTER')} className="text-green-600 font-bold hover:underline">Create Account</button>
+                </p>
+              </motion.form>
+            )}
+
+            {view === 'REGISTER' && (
+              <motion.form 
+                key="register"
+                initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -20, opacity: 0 }}
+                onSubmit={handleRegisterSubmit} 
+                className="space-y-4"
+              >
+                <div className="grid grid-cols-2 gap-3">
+                   <div className="relative">
+                     <UserIcon className="absolute left-3 top-3.5 w-4 h-4 text-gray-400" />
+                     <input type="text" placeholder="Name" value={regData.name} onChange={e => setRegData({...regData, name: e.target.value})} className="w-full pl-9 pr-3 py-3 bg-gray-50 rounded-xl text-sm font-bold outline-none border border-transparent focus:border-green-500" />
+                   </div>
+                   <div className="relative">
+                     <Phone className="absolute left-3 top-3.5 w-4 h-4 text-gray-400" />
+                     <input type="tel" placeholder="Phone" value={regData.phone} onChange={e => setRegData({...regData, phone: e.target.value})} className="w-full pl-9 pr-3 py-3 bg-gray-50 rounded-xl text-sm font-bold outline-none border border-transparent focus:border-green-500" />
+                   </div>
+                </div>
+
+                <div className="relative">
+                  <Mail className="absolute left-4 top-4 w-5 h-5 text-gray-400" />
+                  <input type="email" placeholder="Email (Optional)" value={regData.email} onChange={e => setRegData({...regData, email: e.target.value})} className="w-full pl-12 pr-4 py-4 bg-gray-50 rounded-xl font-bold border-2 border-transparent focus:bg-white focus:border-green-500 outline-none transition-all" />
+                </div>
+
+                <div>
+                   <div className="relative">
+                      <Lock className="absolute left-4 top-4 w-5 h-5 text-gray-400" />
+                      <input type={showPassword ? "text" : "password"} placeholder="Create Password" value={regData.password} onChange={e => setRegData({...regData, password: e.target.value})} className="w-full pl-12 pr-12 py-4 bg-gray-50 rounded-xl font-bold border-2 border-transparent focus:bg-white focus:border-green-500 outline-none transition-all" />
+                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-4 text-gray-400 hover:text-black">
+                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      </button>
+                   </div>
+                   {/* Password Strength */}
+                   <div className="flex gap-1 mt-2 h-1">
+                      {[1, 2, 3, 4].map(i => (
+                        <div key={i} className={`flex-1 rounded-full transition-colors ${i <= strength ? (strength < 2 ? 'bg-red-500' : strength < 4 ? 'bg-yellow-500' : 'bg-green-500') : 'bg-gray-200'}`} />
+                      ))}
+                   </div>
+                   <p className="text-xs text-gray-400 mt-1 text-right">{strength < 2 ? 'Weak' : strength < 4 ? 'Medium' : 'Strong'}</p>
+                </div>
+
+                <div className="flex gap-2">
+                   <div className="relative flex-1">
+                     <MapPin className="absolute left-4 top-4 w-5 h-5 text-gray-400" />
+                     <input type="text" placeholder="Location" value={regData.location} onChange={e => setRegData({...regData, location: e.target.value})} className="w-full pl-12 pr-4 py-4 bg-gray-50 rounded-xl font-bold border-2 border-transparent focus:bg-white focus:border-green-500 outline-none transition-all" />
+                   </div>
+                   <button type="button" onClick={handleLocation} className="p-4 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-colors">
+                     {loading ? <Loader2 className="animate-spin" /> : <MapPin />}
+                   </button>
+                </div>
+
+                <label className="flex items-center gap-3 p-2 cursor-pointer">
+                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${regData.agreeTerms ? 'bg-green-600 border-green-600' : 'border-gray-300'}`}>
+                    {regData.agreeTerms && <Check className="w-3 h-3 text-white" />}
+                  </div>
+                  <input type="checkbox" className="hidden" checked={regData.agreeTerms} onChange={e => setRegData({...regData, agreeTerms: e.target.checked})} />
+                  <span className="text-sm font-medium text-gray-500">I agree to <span className="text-green-600">Terms & Conditions</span></span>
+                </label>
+
+                <button type="submit" disabled={loading} className="w-full py-4 bg-green-600 text-white rounded-xl font-black shadow-lg shadow-green-200 hover:bg-green-700 active:scale-95 transition-all flex justify-center">
+                   {loading ? <Loader2 className="animate-spin" /> : 'Create Account'}
+                </button>
+
+                <p className="text-center text-gray-500 text-sm font-medium">
+                  Already have an account? <button type="button" onClick={() => setView('LOGIN')} className="text-green-600 font-bold hover:underline">Sign In</button>
+                </p>
+              </motion.form>
+            )}
+
+            {view === 'OTP' && (
+              <motion.form 
+                key="otp"
+                initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -20, opacity: 0 }}
+                onSubmit={handleVerifyOTP} 
+                className="space-y-6 text-center"
+              >
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">Verify it's you</h3>
+                  <p className="text-gray-500 text-sm mt-1">We sent a code to <span className="font-bold text-black">{regData.phone || identifier}</span></p>
+                </div>
+
+                <input type="text" autoFocus maxLength={6} placeholder="123456" value={otpInput} onChange={e => setOtpInput(e.target.value)} className="w-full text-center text-4xl font-mono font-bold tracking-[0.5em] py-4 bg-transparent border-b-4 border-gray-200 focus:border-green-600 outline-none transition-colors" />
+
+                <p className="text-sm text-gray-400">Code expires in {Math.floor(countdown / 60)}:{(countdown % 60).toString().padStart(2, '0')}</p>
 
                 <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setStep('INPUT')}
-                    className="flex-1 py-3.5 bg-gray-100 text-black font-bold rounded-xl hover:bg-gray-200 transition-all flex items-center justify-center gap-2 border-2 border-transparent hover:border-gray-300"
-                  >
-                    <ArrowLeft className="w-5 h-5" /> Back
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="flex-[2] py-3.5 bg-agri-green-600 text-white font-black rounded-xl shadow-lg hover:bg-agri-green-700 transition-all flex items-center justify-center gap-2 border-b-4 border-agri-green-800 active:border-b-0 active:translate-y-1"
-                  >
-                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Verify & Continue'}
-                  </button>
+                   <button type="button" onClick={() => setView(regData.phone ? 'REGISTER' : 'LOGIN')} className="flex-1 py-4 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200">Back</button>
+                   <button type="submit" disabled={loading} className="flex-[2] py-4 bg-green-600 text-white rounded-xl font-black shadow-lg shadow-green-200 hover:bg-green-700 active:scale-95 transition-all flex justify-center">
+                     {loading ? <Loader2 className="animate-spin" /> : 'Verify'}
+                   </button>
                 </div>
               </motion.form>
             )}

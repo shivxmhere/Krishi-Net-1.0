@@ -10,8 +10,9 @@ import History from './components/History';
 import Settings from './components/Settings';
 import Auth from './components/Auth';
 import Onboarding from './components/Onboarding';
+import Welcome from './components/Welcome'; // Import Welcome
 import { AppView, User } from './types';
-import { getCurrentUser } from './services/authService';
+import { getCurrentUser, completeOnboarding } from './services/authService';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { LanguageProvider } from './contexts/LanguageContext';
 
@@ -19,13 +20,13 @@ function AppContent() {
   const [user, setUser] = useState<User | null>(null);
   const [currentView, setView] = useState<AppView>(AppView.DASHBOARD);
   const [loading, setLoading] = useState(true);
-  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showAppTour, setShowAppTour] = useState(false);
 
   useEffect(() => {
-    // 1. Check Onboarding Status
-    const onboardingCompleted = localStorage.getItem('krishi_onboarding_completed');
-    if (!onboardingCompleted) {
-      setShowOnboarding(true);
+    // 1. Check App Tour Status (different from User Onboarding)
+    const tourCompleted = localStorage.getItem('krishi_tour_completed');
+    if (!tourCompleted) {
+      setShowAppTour(true);
     }
 
     // 2. Check User Session
@@ -36,9 +37,9 @@ function AppContent() {
     setLoading(false);
   }, []);
 
-  const handleOnboardingComplete = () => {
-    localStorage.setItem('krishi_onboarding_completed', 'true');
-    setShowOnboarding(false);
+  const handleTourComplete = () => {
+    localStorage.setItem('krishi_tour_completed', 'true');
+    setShowAppTour(false);
   };
 
   const handleLogin = (loggedInUser: User) => {
@@ -47,6 +48,14 @@ function AppContent() {
 
   const handleUserUpdate = (updatedUser: User) => {
     setUser(updatedUser);
+  };
+
+  const handleWelcomeComplete = async () => {
+    if (user) {
+      const updated = await completeOnboarding(user);
+      setUser(updated);
+      setView(AppView.FARM_MANAGEMENT); // Redirect to add crop
+    }
   };
 
   const renderView = () => {
@@ -78,12 +87,12 @@ function AppContent() {
     );
   }
 
-  // Show Onboarding if not completed (regardless of auth)
-  if (showOnboarding) {
-    return <Onboarding onComplete={handleOnboardingComplete} />;
+  // 1. Show App Tour (Slides) if not seen yet
+  if (showAppTour) {
+    return <Onboarding onComplete={handleTourComplete} />;
   }
 
-  // Show Auth if not logged in
+  // 2. Show Auth if not logged in
   if (!user) {
     return (
       <LanguageProvider>
@@ -92,6 +101,12 @@ function AppContent() {
     );
   }
 
+  // 3. Show Welcome Screen if User is not onboarded (Fresh Signup)
+  if (!user.isOnboarded) {
+    return <Welcome user={user} onGetStarted={handleWelcomeComplete} />;
+  }
+
+  // 4. Main App
   return (
     <Layout currentView={currentView} setView={setView}>
       {renderView()}

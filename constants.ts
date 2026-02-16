@@ -1,3 +1,4 @@
+
 import { MarketPrice, WeatherData, Crop } from './types';
 
 export const MOCK_WEATHER: WeatherData = {
@@ -50,26 +51,8 @@ export const getHistoricalData = (basePrice: number, period: '1W' | '1M' | '3M' 
   return history;
 };
 
-export const INITIAL_CROPS: Crop[] = [
-  {
-    id: '1',
-    name: 'Wheat',
-    variety: 'HD-2967',
-    plantingDate: '2023-11-15',
-    area: 5,
-    expectedHarvestDate: '2024-04-10',
-    status: 'Healthy'
-  },
-  {
-    id: '2',
-    name: 'Mustard',
-    variety: 'Pusa Bold',
-    plantingDate: '2023-10-20',
-    area: 2,
-    expectedHarvestDate: '2024-03-05',
-    status: 'Needs Attention'
-  }
-];
+// INITIAL_CROPS is now empty to support the "My Farm Empty State" requirement
+export const INITIAL_CROPS: Crop[] = [];
 
 export const SUGGESTED_QUESTIONS = [
   "How much fertilizer for 2 acres of wheat?",

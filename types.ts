@@ -7,6 +7,7 @@ export interface User {
   location: string;
   state: string;
   joinedDate: string;
+  isOnboarded?: boolean; // New field for welcome flow
 }
 
 export interface WeatherData {
@@ -77,7 +78,8 @@ export enum AppView {
   FARM_MANAGEMENT = 'FARM_MANAGEMENT',
   HISTORY = 'HISTORY',
   WEATHER = 'WEATHER',
-  SETTINGS = 'SETTINGS'
+  SETTINGS = 'SETTINGS',
+  WELCOME = 'WELCOME' // New view
 }
 
 export type Language = 'en' | 'hi' | 'ur';
