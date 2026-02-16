@@ -9,6 +9,7 @@ import FarmManager from './components/FarmManager';
 import History from './components/History';
 import Settings from './components/Settings';
 import Auth from './components/Auth';
+import Onboarding from './components/Onboarding';
 import { AppView, User } from './types';
 import { getCurrentUser } from './services/authService';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -18,15 +19,27 @@ function AppContent() {
   const [user, setUser] = useState<User | null>(null);
   const [currentView, setView] = useState<AppView>(AppView.DASHBOARD);
   const [loading, setLoading] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
-    // Check for logged in user on mount
+    // 1. Check Onboarding Status
+    const onboardingCompleted = localStorage.getItem('krishi_onboarding_completed');
+    if (!onboardingCompleted) {
+      setShowOnboarding(true);
+    }
+
+    // 2. Check User Session
     const storedUser = getCurrentUser();
     if (storedUser) {
       setUser(storedUser);
     }
     setLoading(false);
   }, []);
+
+  const handleOnboardingComplete = () => {
+    localStorage.setItem('krishi_onboarding_completed', 'true');
+    setShowOnboarding(false);
+  };
 
   const handleLogin = (loggedInUser: User) => {
     setUser(loggedInUser);
@@ -59,12 +72,18 @@ function AppContent() {
 
   if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-agri-green-50 dark:bg-gray-900 text-agri-green-600">
-        Loading Krishi-Net...
+      <div className="h-screen flex items-center justify-center bg-primary-50 dark:bg-gray-900 text-primary-600">
+        <div className="animate-pulse font-bold text-xl">Loading Krishi-Net...</div>
       </div>
     );
   }
 
+  // Show Onboarding if not completed (regardless of auth)
+  if (showOnboarding) {
+    return <Onboarding onComplete={handleOnboardingComplete} />;
+  }
+
+  // Show Auth if not logged in
   if (!user) {
     return (
       <LanguageProvider>
