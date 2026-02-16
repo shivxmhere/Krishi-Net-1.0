@@ -1,0 +1,9 @@
+{
+  "name": "Krishi-Net 1.0",
+  "description": "An AI-powered smart agriculture platform helping farmers with disease detection, advisory, and farm management.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}
