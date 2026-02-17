@@ -120,7 +120,7 @@ export const getLocationBasedData = async (location: string): Promise<LocationDa
         "marketPrices": [{"crop": "string", "mandi": "string", "price": number, "change": number, "trend": "up/down/stable"}],
         "activeCrops": [{"name": "string", "status": "string"}],
         "nearbyMarkets": [{"name": "string", "distance": "string", "priceDiff": number}],
-        "weather": {"temp": number, "condition": "string", "humidity": number, "windSpeed": number, "forecast": [{"day": "string", "temp": number, "rainChance": number}]}
+        "weather": {"temp": number, "condition": "string", "humidity": number, "windSpeed": number, "forecast": [{"day": "string", "temp": number, "rainChance": number}, {"day": "string", "temp": number, "rainChance": number}, {"day": "string", "temp": number, "rainChance": number}]}
       }
     `;
 

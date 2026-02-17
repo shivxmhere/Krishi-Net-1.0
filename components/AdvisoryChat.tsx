@@ -1,19 +1,24 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User, Loader2, Sparkles } from 'lucide-react';
+import { Send, Loader2, Sparkles, User, Sprout } from 'lucide-react';
 import { getAdvisoryResponse } from '../services/geminiService';
 import { ChatMessage } from '../types';
 import { SUGGESTED_QUESTIONS, MOCK_WEATHER } from '../constants';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useVoice } from '../contexts/VoiceContext';
+import { motion, AnimatePresence } from 'framer-motion';
+import { GlassCard } from './ui/GlassCard';
+import { Icons } from './ui/IconSystem';
+import { Button } from './ui/Button';
 
 const AdvisoryChat: React.FC = () => {
   const { language } = useLanguage();
-  const { isListening, lastCommand } = useVoice(); // Use Voice Context
+  const { isListening, lastCommand } = useVoice();
+
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: '1',
       role: 'model',
-      text: language === 'hi' ? 'नमस्ते! मैं आपका कृषि- friend हूँ। पूछिए क्या मदद करूँ?' :
+      text: language === 'hi' ? 'नमस्ते! मैं आपका कृषि-मित्र हूँ। पूछिए क्या मदद करूँ?' :
         language === 'ur' ? 'آداب! میں آپ کا کرشی دوست ہوں۔ بتائیے کیا مدد کروں؟' :
           'Namaste! I am your Krishi Friend 🌾. Ask me anything about your farm!',
       timestamp: new Date()
@@ -31,14 +36,10 @@ const AdvisoryChat: React.FC = () => {
     scrollToBottom();
   }, [messages, isListening]);
 
-  // Handle Voice Input
   useEffect(() => {
     if (lastCommand) {
-      // If not a navigation command (handled in Layout), likely a chat message
       if (!input && !loading) {
         setInput(lastCommand);
-        // Optional: Auto-send if it sounds like a question
-        // handleSend(lastCommand); 
       }
     }
   }, [lastCommand]);
@@ -59,8 +60,7 @@ const AdvisoryChat: React.FC = () => {
 
     try {
       const history = messages.map(m => ({ role: m.role, text: m.text }));
-      const context = `Weather today is ${MOCK_WEATHER.condition}, ${MOCK_WEATHER.temp}°C. Humidity ${MOCK_WEATHER.humidity}%. Forecast: Rain chance ${MOCK_WEATHER.forecast[1].rainChance}% tomorrow.`;
-
+      const context = `Weather: ${MOCK_WEATHER.condition}, ${MOCK_WEATHER.temp}°C. Humidity ${MOCK_WEATHER.humidity}%.`;
       const response = await getAdvisoryResponse(text, history, context, language);
 
       const botMsg: ChatMessage = {
@@ -78,90 +78,107 @@ const AdvisoryChat: React.FC = () => {
   };
 
   return (
-    <div className="h-[calc(100vh-8rem)] max-w-4xl mx-auto flex flex-col bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-      <div className="bg-green-600 p-4 flex items-center gap-3 text-white">
-        <div className="bg-white/20 p-2 rounded-full">
-          <Bot className="w-6 h-6" />
+    <div className="h-[calc(100vh-8rem)] max-w-5xl mx-auto flex flex-col gap-4">
+      {/* Header */}
+      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-4 px-2">
+        <div className="w-12 h-12 bg-gradient-to-br from-harvest-green to-sprout-green rounded-2xl flex items-center justify-center text-white shadow-glow-green">
+          <Icons.Advisory size={28} />
         </div>
         <div>
-          <h2 className="font-semibold text-lg">Smart Advisory</h2>
-          <p className="text-green-100 text-sm">Online • AI Assistant</p>
+          <h2 className="text-2xl font-display font-bold text-deep-earth dark:text-white">Smart Advisory</h2>
+          <p className="text-earth-soil dark:text-gray-400 font-medium">Your 24/7 AI Agri-Expert</p>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-6 bg-gray-50">
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex items-start gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
-          >
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-green-600 text-white'
-              }`}>
-              {msg.role === 'user' ? <User className="w-5 h-5" /> : <Bot className="w-5 h-5" />}
-            </div>
-            <div className={`max-w-[80%] rounded-2xl p-4 shadow-sm ${msg.role === 'user'
-              ? 'bg-blue-600 text-white rounded-tr-none'
-              : 'bg-white text-gray-800 rounded-tl-none border border-gray-100'
-              }`}>
-              <p className="whitespace-pre-wrap leading-relaxed">{msg.text}</p>
-              <span className={`text-xs mt-2 block ${msg.role === 'user' ? 'text-blue-100' : 'text-gray-400'}`}>
-                {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </span>
-            </div>
-          </div>
-        ))}
-        {loading && (
-          <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-full bg-green-600 text-white flex items-center justify-center">
-              <Bot className="w-5 h-5" />
-            </div>
-            <div className="bg-white p-4 rounded-2xl rounded-tl-none border border-gray-100 shadow-sm flex items-center gap-2">
-              <Loader2 className="w-4 h-4 animate-spin text-green-600" />
-              <span className="text-sm text-gray-500">Thinking...</span>
-            </div>
-          </div>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
+      <GlassCard className="flex-1 flex flex-col overflow-hidden border-2 border-glass-border">
+        {/* Chat Area */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6 scroll-smooth">
+          {messages.map((msg) => (
+            <motion.div
+              initial={{ opacity: 0, y: 10, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              key={msg.id}
+              className={`flex items-end gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
+            >
+              {/* Avatar */}
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 shadow-md ${msg.role === 'user'
+                  ? 'bg-gradient-to-br from-earth-golden to-earth-amber text-deep-earth'
+                  : 'bg-gradient-to-br from-harvest-green to-leaf-green text-white'
+                }`}>
+                {msg.role === 'user' ? <User size={20} /> : <Sprout size={20} />}
+              </div>
 
-      {messages.length < 3 && (
-        <div className="p-4 bg-gray-50 border-t border-gray-100">
-          <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider flex items-center gap-1">
-            <Sparkles className="w-3 h-3" /> Suggested Questions
-          </p>
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-            {SUGGESTED_QUESTIONS.map((q, i) => (
-              <button
-                key={i}
-                onClick={() => handleSend(q)}
-                className="whitespace-nowrap px-4 py-2 bg-white border border-green-200 text-green-700 rounded-full text-sm hover:bg-green-50 transition-colors"
-              >
-                {q}
-              </button>
-            ))}
+              {/* Bubble */}
+              <div className={`max-w-[85%] md:max-w-[70%] p-4 shadow-sm relative group ${msg.role === 'user'
+                  ? 'bg-gradient-to-br from-earth-golden to-earth-amber text-white rounded-2xl rounded-br-none'
+                  : 'bg-white/80 dark:bg-white/10 text-deep-earth dark:text-gray-100 rounded-2xl rounded-bl-none border border-glass-border'
+                }`}>
+                <p className="whitespace-pre-wrap leading-relaxed text-[15px]">{msg.text}</p>
+                <span className={`text-[10px] font-bold mt-2 block opacity-70 group-hover:opacity-100 transition-opacity ${msg.role === 'user' ? 'text-white/80' : 'text-earth-soil/60 dark:text-gray-500'
+                  }`}>
+                  {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+            </motion.div>
+          ))}
+
+          {loading && (
+            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex items-end gap-3">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-harvest-green to-leaf-green text-white flex items-center justify-center shrink-0 shadow-md">
+                <Sprout size={20} />
+              </div>
+              <div className="bg-white/80 dark:bg-white/10 p-4 rounded-2xl rounded-bl-none border border-glass-border flex items-center gap-3">
+                <div className="flex gap-1">
+                  <span className="w-2 h-2 bg-harvest-green rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                  <span className="w-2 h-2 bg-harvest-green rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                  <span className="w-2 h-2 bg-harvest-green rounded-full animate-bounce"></span>
+                </div>
+                <span className="text-xs font-bold text-harvest-green dark:text-sprout-green uppercase tracking-wider">Thinking</span>
+              </div>
+            </motion.div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Input Area */}
+        <div className="p-4 bg-white/40 dark:bg-black/20 backdrop-blur-md border-t border-glass-border space-y-4">
+          {/* Suggestions */}
+          {messages.length < 3 && !loading && (
+            <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+              {SUGGESTED_QUESTIONS.map((q, i) => (
+                <motion.button
+                  key={i}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => handleSend(q)}
+                  className="whitespace-nowrap px-4 py-2 bg-white/60 dark:bg-white/10 border border-glass-border text-harvest-green dark:text-sprout-green rounded-full text-xs font-bold hover:bg-sprout-green/20 hover:border-sprout-green/50 transition-all flex items-center gap-2"
+                >
+                  <Sparkles size={12} /> {q}
+                </motion.button>
+              ))}
+            </div>
+          )}
+
+          <div className="flex gap-2 relative">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+              placeholder="Ask about crops..."
+              className="flex-1 px-6 py-4 bg-white/50 dark:bg-black/20 border border-glass-border rounded-2xl focus:outline-none focus:ring-2 focus:ring-sprout-green/50 focus:bg-white/80 dark:focus:bg-deep-earth/80 transition-all placeholder:text-gray-400 text-deep-earth dark:text-white"
+            />
+            <Button
+              onClick={() => handleSend()}
+              disabled={!input.trim() || loading}
+              className="absolute right-2 top-2 bottom-2 rounded-xl px-4"
+              variant={!input.trim() ? "ghost" : "primary"}
+            >
+              <Send size={20} />
+            </Button>
           </div>
         </div>
-      )}
-
-      <div className="p-4 bg-white border-t border-gray-200">
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="Ask about crops, weather, or fertilizers..."
-            className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:bg-white transition-all"
-          />
-          <button
-            onClick={() => handleSend()}
-            disabled={!input.trim() || loading}
-            className="p-3 bg-green-600 text-white rounded-xl hover:bg-green-700 disabled:opacity-50 disabled:hover:bg-green-600 transition-colors"
-          >
-            <Send className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
+      </GlassCard>
     </div>
   );
 };

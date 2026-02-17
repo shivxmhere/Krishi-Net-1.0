@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import WeatherWidget from './WeatherWidget';
-import { ArrowRight, Leaf, Sprout, TrendingUp, Loader2, ThermometerSun, Droplets, ShieldCheck } from 'lucide-react';
+import { ArrowRight, TrendingUp, ShieldCheck, Sprout, Leaf } from 'lucide-react';
 import { AppView, WeatherData, MarketPrice } from '../types';
 import { getCurrentUser } from '../services/authService';
 import { getLocationBasedData } from '../services/geminiService';
@@ -8,6 +8,9 @@ import { getRealWeather } from '../services/weatherService';
 import { MOCK_MARKET_PRICES, MOCK_WEATHER } from '../constants';
 import { useLanguage } from '../contexts/LanguageContext';
 import { motion } from 'framer-motion';
+import { GlassCard } from './ui/GlassCard';
+import { Icons } from './ui/IconSystem';
+import { Button } from './ui/Button';
 
 interface DashboardProps {
   setView: (view: AppView) => void;
@@ -18,9 +21,7 @@ const container = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
-    transition: {
-      staggerChildren: 0.1
-    }
+    transition: { staggerChildren: 0.1 }
   }
 };
 
@@ -44,18 +45,16 @@ export default function Dashboard({ setView, onDataLoaded }: DashboardProps) {
         try {
           let currentWeatherData: WeatherData | null = null;
 
-          // 1. Fetch Real Weather independently
+          // 1. Real Weather
           try {
             const realWeather = await getRealWeather(user.location);
             if (realWeather) {
               setWeather(realWeather);
               currentWeatherData = realWeather;
             }
-          } catch (e) {
-            console.error("Failed to fetch real weather", e);
-          }
+          } catch (e) { console.error(e); }
 
-          // 2. Fetch Market/Crop Data from Gemini (Rotation Pool)
+          // 2. Market Data
           try {
             const data = await getLocationBasedData(user.location);
             if (data) {
@@ -63,173 +62,169 @@ export default function Dashboard({ setView, onDataLoaded }: DashboardProps) {
               if (data.marketPrices) setPrices(data.marketPrices);
               if (onDataLoaded) onDataLoaded(currentWeatherData || data.weather || weather, data.marketPrices);
             }
-          } catch (e) {
-            console.error("Gemini data pool error", e);
-          }
+          } catch (e) { console.error(e); }
 
-          // 3. FETCH REAL CROPS (PERSISTENCE)
+          // 3. Active Crops
           try {
             const token = localStorage.getItem('krishi_net_token');
             if (token) {
               const api = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
-              const cropRes = await fetch(`${api}/api/v1/crops/`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-              });
+              const cropRes = await fetch(`${api}/api/v1/crops/`, { headers: { 'Authorization': `Bearer ${token}` } });
               if (cropRes.ok) {
                 const realCrops = await cropRes.json();
                 setActiveCrops(realCrops.map((c: any) => ({ name: c.name, status: c.status })));
               }
             }
-          } catch (e) {
-            console.error("Failed to sync crops", e);
-          }
-        } catch (globalError) {
-          console.error("Dashboard critical fetch error:", globalError);
-        } finally {
-          setLoading(false);
-        }
+          } catch (e) { console.error(e); }
+
+        } catch (err) { console.error(err); }
+        finally { setLoading(false); }
       }
     };
-
     fetchData();
   }, [user?.location]);
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh] gap-6 text-black">
+      <div className="flex flex-col items-center justify-center h-[60vh] gap-6 text-harvest-green">
         <div className="relative">
-          <div className="w-16 h-16 border-4 border-agri-green-200 border-t-black rounded-full animate-spin"></div>
+          <div className="w-16 h-16 border-4 border-sprout-green/30 border-t-sprout-green rounded-full animate-spin"></div>
           <div className="absolute inset-0 flex items-center justify-center">
-            <Sprout className="w-6 h-6 animate-pulse text-agri-green-600" />
+            <Icons.Logo size={24} className="animate-pulse text-harvest-green" />
           </div>
         </div>
-        <p className="text-lg font-bold text-black">Syncing Satellite Data...</p>
+        <p className="text-lg font-bold font-display animate-pulse">Syncing Living Fields...</p>
       </div>
     );
   }
 
   return (
-    <motion.div
-      variants={container}
-      initial="hidden"
-      animate="show"
-      className="space-y-8"
-    >
-      {/* Welcome Section */}
-      <motion.div variants={item} className="flex justify-between items-end">
+    <motion.div variants={container} initial="hidden" animate="show" className="space-y-8">
+      {/* Welcome Header */}
+      <motion.div variants={item} className="flex flex-col md:flex-row justify-between items-end gap-4">
         <div>
-          <h2 className="text-4xl font-black text-black tracking-tight">
-            {t('welcome')}, {user?.name.split(' ')[0]}
+          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white leading-tight">
+            {t('welcome')}, <span className="text-green-600 dark:text-green-400">{user?.name.split(' ')[0]}</span>
           </h2>
-          <div className="flex flex-wrap items-center gap-3 mt-2">
-            <div className="flex items-center gap-2 text-black font-semibold">
-              <span className="w-3 h-3 rounded-full bg-agri-green-500 animate-pulse border border-black"></span>
-              <p>{t('liveInsights')} <span className="font-bold text-farm-blue-700">{user?.location}</span></p>
-            </div>
-            <div className="hidden sm:flex items-center gap-1.5 px-3 py-0.5 bg-black text-primary-400 rounded-full text-[10px] font-black uppercase tracking-widest border border-primary-500/30">
-              <ShieldCheck className="w-3.5 h-3.5" /> Mission-Critical AI Active
+          <div className="flex items-center gap-3 mt-2">
+            <div className="flex items-center gap-2 text-earth-soil dark:text-gray-300 font-medium bg-white/40 dark:bg-black/20 px-3 py-1 rounded-full border border-glass-border backdrop-blur-sm">
+              <span className="w-2 h-2 rounded-full bg-sprout-green animate-pulse shadow-glow-green"></span>
+              <p className="text-sm">{t('liveInsights')} <span className="font-bold text-harvest-green dark:text-sprout-green">{user?.location}</span></p>
             </div>
           </div>
         </div>
-        <div className="hidden md:block text-right">
-          <p className="text-3xl font-light text-black">
+        <div className="text-right hidden md:block">
+          <p className="text-3xl font-display font-light text-deep-earth dark:text-mist-white">
             {new Date().toLocaleDateString('en-IN', { weekday: 'long' })}
           </p>
-          <p className="text-sm font-bold text-black uppercase tracking-widest bg-agri-green-200 px-2 py-1 rounded-md inline-block">
-            {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long' })}
+          <p className="text-sm font-bold text-harvest-green dark:text-sprout-green uppercase tracking-widest">
+            {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         </div>
       </motion.div>
 
-      <div className="grid lg:grid-cols-3 gap-8">
-        {/* Left Column: Weather & Quick Actions */}
-        <div className="space-y-8 lg:col-span-1">
+      <div className="grid lg:grid-cols-3 gap-6">
+        {/* Left Column */}
+        <div className="space-y-6 lg:col-span-1">
           <motion.div variants={item}>
-            <WeatherWidget data={weather} location={user?.location || 'Your Farm'} />
+            <GlassCard className="p-6 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-sky-morning/20 rounded-full blur-3xl -translate-y-10 translate-x-10 group-hover:bg-sky-morning/30 transition-all"></div>
+              <WeatherWidget data={weather} location={user?.location || 'Your Farm'} />
+            </GlassCard>
           </motion.div>
 
-          <motion.div variants={item} className="bg-white/80 backdrop-blur-xl rounded-[2rem] p-6 shadow-xl border-2 border-agri-green-400">
-            <h3 className="font-black text-black text-xl mb-4 ml-1">{t('quickActions')}</h3>
+          {/* Quick Actions */}
+          <GlassCard className="p-6">
+            <h3 className="font-heading font-bold text-xl text-deep-earth dark:text-white mb-4 flex items-center gap-2">
+              <span className="w-1 h-6 bg-harvest-green rounded-full"></span>
+              {t('quickActions')}
+            </h3>
             <div className="space-y-3">
               <motion.button
-                whileHover={{ scale: 1.02 }}
+                whileHover={{ scale: 1.02, x: 5 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => setView(AppView.DISEASE_DETECTION)}
-                className="w-full flex items-center justify-between p-4 bg-white rounded-2xl border-2 border-black hover:bg-red-50 transition-colors group"
+                className="w-full flex items-center justify-between p-4 bg-white/50 dark:bg-white/5 rounded-xl border border-glass-border hover:border-red-400/50 hover:bg-red-50/50 dark:hover:bg-red-900/10 transition-all group"
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center text-red-600 border border-red-200">
-                    <Leaf className="w-6 h-6" />
+                  <div className="w-12 h-12 bg-red-100/80 dark:bg-red-900/30 rounded-full flex items-center justify-center text-red-600 dark:text-red-400 group-hover:scale-110 transition-transform">
+                    <Icons.Disease size={24} />
                   </div>
                   <div className="text-left">
-                    <p className="font-bold text-black">{t('scanCrop')}</p>
-                    <p className="text-xs font-semibold text-gray-500">{t('scanDesc')}</p>
+                    <p className="font-bold text-deep-earth dark:text-white">{t('scanCrop')}</p>
+                    <p className="text-xs text-earth-soil dark:text-gray-400">Detect diseases instantly</p>
                   </div>
                 </div>
-                <div className="w-8 h-8 rounded-full bg-black flex items-center justify-center">
-                  <ArrowRight className="w-4 h-4 text-white" />
-                </div>
+                <ArrowRight size={18} className="text-earth-soil dark:text-gray-400 group-hover:translate-x-1 transition-transform" />
               </motion.button>
 
               <motion.button
-                whileHover={{ scale: 1.02 }}
+                whileHover={{ scale: 1.02, x: 5 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => setView(AppView.ADVISORY)}
-                className="w-full flex items-center justify-between p-4 bg-white rounded-2xl border-2 border-black hover:bg-agri-green-50 transition-colors group"
+                className="w-full flex items-center justify-between p-4 bg-white/50 dark:bg-white/5 rounded-xl border border-glass-border hover:border-sprout-green/50 hover:bg-sprout-green/10 transition-all group"
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-agri-green-100 rounded-full flex items-center justify-center text-agri-green-600 border border-agri-green-200">
-                    <Sprout className="w-6 h-6" />
+                  <div className="w-12 h-12 bg-sprout-green/20 rounded-full flex items-center justify-center text-harvest-green dark:text-sprout-green group-hover:scale-110 transition-transform">
+                    <Icons.Advisory size={24} />
                   </div>
                   <div className="text-left">
-                    <p className="font-bold text-black">{t('getAdvice')}</p>
-                    <p className="text-xs font-semibold text-gray-500">{t('adviceDesc')}</p>
+                    <p className="font-bold text-deep-earth dark:text-white">{t('getAdvice')}</p>
+                    <p className="text-xs text-earth-soil dark:text-gray-400">Chat with Agri-AI</p>
                   </div>
                 </div>
-                <div className="w-8 h-8 rounded-full bg-black flex items-center justify-center">
-                  <ArrowRight className="w-4 h-4 text-white" />
-                </div>
+                <ArrowRight size={18} className="text-earth-soil dark:text-gray-400 group-hover:translate-x-1 transition-transform" />
               </motion.button>
             </div>
-          </motion.div>
+          </GlassCard>
         </div>
 
-        {/* Right Column: Market & Crops */}
-        <div className="lg:col-span-2 space-y-8">
-          {/* Market Highlights */}
-          <motion.div variants={item} className="bg-white/80 backdrop-blur-xl rounded-[2rem] p-8 shadow-xl border-2 border-farm-blue-400">
+        {/* Right Column */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Market Ticker */}
+          <GlassCard className="p-6">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="font-black text-2xl text-black">{t('marketTrends')}</h3>
-              <button onClick={() => setView(AppView.MARKET)} className="px-4 py-1 bg-black text-white rounded-full text-sm font-bold hover:bg-gray-800">{t('viewAll')}</button>
+              <h3 className="font-heading font-bold text-xl text-deep-earth dark:text-white flex items-center gap-2">
+                <TrendingUp size={20} className="text-earth-golden" />
+                {t('marketTrends')}
+              </h3>
+              <Button size="sm" variant="ghost" onClick={() => setView(AppView.MARKET)}>View All</Button>
             </div>
             <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
               {prices.slice(0, 3).map((item, i) => (
                 <motion.div
                   key={i}
                   whileHover={{ y: -5 }}
-                  className="p-5 rounded-2xl bg-white border-2 border-farm-blue-100 shadow-sm"
+                  className="p-4 rounded-xl bg-white/40 dark:bg-white/5 border border-glass-border relative overflow-hidden"
                 >
-                  <div className="flex justify-between items-start mb-2">
-                    <p className="text-sm font-bold text-black">{item.crop}</p>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-black border ${item.trend === 'up' ? 'bg-green-100 text-green-800 border-green-200' : 'bg-red-100 text-red-800 border-red-200'}`}>
-                      {item.trend === 'up' ? '↑' : '↓'} {Math.abs(item.change)}%
-                    </span>
+                  <div className={`absolute top-0 right-0 p-1.5 rounded-bl-xl text-[10px] font-bold ${item.trend === 'up' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                    }`}>
+                    {item.trend === 'up' ? '▲' : '▼'} {Math.abs(item.change)}%
                   </div>
-                  <p className="text-2xl font-black text-black">₹{item.price}</p>
+                  <p className="text-sm font-medium text-earth-soil dark:text-gray-400 mb-1">{item.crop}</p>
+                  <p className="text-2xl font-display font-bold text-gray-900 dark:text-white">₹{item.price}</p>
+                  <p className="text-xs text-earth-soil/60 dark:text-gray-500 mt-2">{item.mandi}</p>
                 </motion.div>
               ))}
             </div>
-          </motion.div>
+          </GlassCard>
 
-          {/* Active Crops Summary (Dynamic) */}
-          <motion.div variants={item} className="bg-white/80 backdrop-blur-xl rounded-[2rem] p-8 shadow-xl border-2 border-agri-green-400 flex-1">
+          {/* Crop Timeline */}
+          <GlassCard className="p-6 h-full min-h-[300px]">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="font-black text-2xl text-black">{t('yourCrops')}</h3>
-              <button onClick={() => setView(AppView.FARM_MANAGEMENT)} className="px-4 py-1 bg-black text-white rounded-full text-sm font-bold hover:bg-gray-800">{t('manage')}</button>
+              <h3 className="font-heading font-bold text-xl text-deep-earth dark:text-white flex items-center gap-2">
+                <Icons.Farm size={20} className="text-leaf-green" />
+                {t('yourCrops')}
+              </h3>
+              <Button size="sm" variant="primary" onClick={() => setView(AppView.FARM_MANAGEMENT)}>+ Add Crop</Button>
             </div>
-            <div className="space-y-4">
+
+            <div className="space-y-0 relative">
+              {/* Timeline Line */}
+              <div className="absolute left-6 top-4 bottom-4 w-0.5 bg-glass-border"></div>
+
               {loading ? (
-                <div className="p-4 text-center text-black font-medium animate-pulse">Syncing farm data...</div>
+                <div className="p-8 text-center text-earth-soil animate-pulse">Loading timeline...</div>
               ) : activeCrops.length > 0 ? (
                 activeCrops.map((crop, idx) => (
                   <motion.div
@@ -237,29 +232,39 @@ export default function Dashboard({ setView, onDataLoaded }: DashboardProps) {
                     initial={{ x: -20, opacity: 0 }}
                     animate={{ x: 0, opacity: 1 }}
                     transition={{ delay: idx * 0.1 }}
-                    className={`flex items-center gap-4 p-4 rounded-2xl border-2 backdrop-blur-sm ${idx % 2 === 0
-                      ? 'bg-yellow-50 border-yellow-200'
-                      : 'bg-agri-green-50 border-agri-green-200'
-                      }`}
+                    className="relative pl-14 py-3 group"
                   >
-                    <div className={`w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm shrink-0 border-2 ${idx % 2 === 0 ? 'border-yellow-100 text-yellow-600' : 'border-agri-green-100 text-agri-green-600'}`}>
-                      {idx % 2 === 0 ? <Sprout className="w-6 h-6" /> : <Leaf className="w-6 h-6" />}
+                    {/* Timeline Dot */}
+                    <div className={`absolute left-[21px] top-6 w-3 h-3 rounded-full border-2 border-white dark:border-deep-earth z-10 transition-colors ${crop.status === 'Healthy' ? 'bg-sprout-green' : 'bg-earth-golden'
+                      }`}></div>
+
+                    <div className="p-4 rounded-xl bg-white/40 dark:bg-white/5 border border-glass-border group-hover:border-sprout-green/30 transition-all flex justify-between items-center">
+                      <div>
+                        <h4 className="font-bold text-deep-earth dark:text-white text-lg">{crop.name}</h4>
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold mt-1 ${crop.status === 'Healthy'
+                          ? 'bg-sprout-green/20 text-harvest-green dark:text-sprout-green'
+                          : 'bg-earth-golden/20 text-earth-amber'
+                          }`}>
+                          {crop.status === 'Healthy' ? <ShieldCheck size={12} /> : <Leaf size={12} />}
+                          {crop.status}
+                        </span>
+                      </div>
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button size="sm" variant="ghost" onClick={() => setView(AppView.FARM_MANAGEMENT)}><ArrowRight size={16} /></Button>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <h4 className="font-black text-black text-lg">{crop.name}</h4>
-                      <p className="text-sm font-semibold text-black">{crop.status}</p>
-                    </div>
-                    <div className="w-3 h-3 rounded-full bg-black"></div>
                   </motion.div>
-                ))) : (
-                <div className="p-10 text-center bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-200">
-                  <Sprout className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-                  <p className="text-gray-500 font-bold">No active crops found.</p>
-                  <button onClick={() => setView(AppView.FARM_MANAGEMENT)} className="text-primary-500 text-sm font-black mt-2 underline">Add your first crop</button>
+                ))
+              ) : (
+                <div className="text-center py-10">
+                  <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Sprout className="text-earth-soil/50" />
+                  </div>
+                  <p className="text-earth-soil dark:text-gray-400">No crops active yet.</p>
                 </div>
               )}
             </div>
-          </motion.div>
+          </GlassCard>
         </div>
       </div>
     </motion.div>

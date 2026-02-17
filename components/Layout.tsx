@@ -1,13 +1,13 @@
-
-import React, { useState } from 'react';
-import { LayoutDashboard, Stethoscope, MessageSquareText, TrendingUp, Tractor, LogOut, MapPin, Moon, Sun, Settings, Mic, X, History } from 'lucide-react';
+import React from 'react';
 import { AppView } from '../types';
 import { getCurrentUser, logoutUser } from '../services/authService';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useVoice } from '../contexts/VoiceContext';
-import Background from './Background';
+// Background removed for simple UI
+import { Icons } from './ui/IconSystem';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Mic, X, Sun, Moon, LogOut } from 'lucide-react'; // Keep utility icons from Lucide for now
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -19,27 +19,37 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }) => {
   const user = getCurrentUser();
   const { theme, toggleTheme } = useTheme();
   const { t } = useLanguage();
-  const { isListening, startListening, stopListening, lastCommand } = useVoice(); // Use Context
+  const { isListening, startListening, stopListening, lastCommand } = useVoice();
 
-  // Voice Command Logic - Effect to handle navigation
+  // Voice Command Logic
   React.useEffect(() => {
     if (!lastCommand) return;
+    const command = lastCommand.toLowerCase();
 
-    const command = lastCommand;
-    console.log("Processing Command:", command);
+    const viewMap: Record<string, AppView> = {
+      dashboard: AppView.DASHBOARD,
+      home: AppView.DASHBOARD,
+      disease: AppView.DISEASE_DETECTION,
+      scan: AppView.DISEASE_DETECTION,
+      detect: AppView.DISEASE_DETECTION,
+      advisory: AppView.ADVISORY,
+      chat: AppView.ADVISORY,
+      ask: AppView.ADVISORY,
+      market: AppView.MARKET,
+      price: AppView.MARKET,
+      farm: AppView.FARM_MANAGEMENT,
+      crop: AppView.FARM_MANAGEMENT,
+      history: AppView.HISTORY,
+      record: AppView.HISTORY,
+      setting: AppView.SETTINGS
+    };
 
-    if (command.includes('dashboard') || command.includes('home')) setView(AppView.DASHBOARD);
-    else if (command.includes('disease') || command.includes('scan') || command.includes('detect')) setView(AppView.DISEASE_DETECTION);
-    else if (command.includes('advisory') || command.includes('chat') || command.includes('ask')) setView(AppView.ADVISORY);
-    else if (command.includes('market') || command.includes('price')) setView(AppView.MARKET);
-    else if (command.includes('farm') || command.includes('crops')) setView(AppView.FARM_MANAGEMENT);
-    else if (command.includes('history') || command.includes('records')) setView(AppView.HISTORY);
-    else if (command.includes('settings')) setView(AppView.SETTINGS);
-    else if (command.includes('weather')) setView(AppView.DASHBOARD);
-
-    // Note: If command is not navigation, it stays in 'transcript' for AdvisoryChat to pick up
-    // We don't resetTranscript() here immediately so AdvisoryChat can read it if needed
-
+    for (const key in viewMap) {
+      if (command.includes(key)) {
+        setView(viewMap[key]);
+        return;
+      }
+    }
   }, [lastCommand, setView]);
 
   const handleLogout = () => {
@@ -49,172 +59,195 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }) => {
   };
 
   const navItems = [
-    { id: AppView.DASHBOARD, label: t('dashboard'), icon: LayoutDashboard },
-    { id: AppView.DISEASE_DETECTION, label: t('diseaseDetection'), icon: Stethoscope },
-    { id: AppView.ADVISORY, label: t('advisory'), icon: MessageSquareText },
-    { id: AppView.MARKET, label: t('market'), icon: TrendingUp },
-    { id: AppView.FARM_MANAGEMENT, label: t('myFarm'), icon: Tractor },
-    { id: AppView.HISTORY, label: "History", icon: History },
-    { id: AppView.SETTINGS, label: t('settings'), icon: Settings },
+    { id: AppView.DASHBOARD, label: t('dashboard'), Icon: Icons.Dashboard },
+    { id: AppView.DISEASE_DETECTION, label: t('diseaseDetection'), Icon: Icons.Disease },
+    { id: AppView.ADVISORY, label: t('advisory'), Icon: Icons.Advisory },
+    { id: AppView.MARKET, label: t('market'), Icon: Icons.Market },
+    { id: AppView.FARM_MANAGEMENT, label: t('myFarm'), Icon: Icons.Farm },
+    { id: AppView.HISTORY, label: "History", Icon: Icons.History },
+    { id: AppView.SETTINGS, label: t('settings'), Icon: Icons.Profile },
   ];
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row relative">
-      <Background mode={theme === 'dark' ? 'night' : 'day'} />
+    <div className="min-h-screen flex flex-col md:flex-row relative overflow-hidden font-sans text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-900">
 
-      {/* Voice Listening Overlay */}
+      {/* Voice Overlay */}
       <AnimatePresence>
         {isListening && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center"
+            className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
           >
-            <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl flex flex-col items-center gap-4 text-center border-2 border-agri-green-400">
+            <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl flex flex-col items-center gap-6 text-center shadow-2xl max-w-sm w-full">
               <div className="relative">
-                <div className="w-20 h-20 bg-agri-green-500 rounded-full animate-ping absolute inset-0 opacity-50"></div>
-                <div className="w-20 h-20 bg-agri-green-600 rounded-full flex items-center justify-center relative z-10 text-white">
-                  <Mic className="w-8 h-8" />
+                <div className="w-24 h-24 bg-green-100 dark:bg-green-900 rounded-full animate-pulse absolute inset-0 opacity-40"></div>
+                <div className="w-24 h-24 bg-green-600 rounded-full flex items-center justify-center relative z-10 text-white shadow-xl">
+                  <Mic className="w-10 h-10" />
                 </div>
               </div>
-              <h3 className="text-xl font-bold text-black dark:text-white">Listening...</h3>
-              <p className="text-black font-medium">Try saying "Go to Market" or "Scan Crop"</p>
-              <button onClick={stopListening} className="mt-4 p-2 bg-gray-200 dark:bg-gray-700 rounded-full">
-                <X className="w-6 h-6 text-black dark:text-gray-300" />
+              <div>
+                <h3 className="text-2xl font-bold text-green-700 dark:text-green-400 mb-2">Listening...</h3>
+                <p className="text-gray-600 dark:text-gray-300 font-medium">Try saying "Market Prices"</p>
+              </div>
+              <button
+                onClick={stopListening}
+                className="mt-2 p-3 bg-gray-100 dark:bg-gray-700 rounded-full hover:bg-red-100 hover:text-red-600 transition-colors"
+              >
+                <X className="w-6 h-6" />
               </button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Desktop Sidebar - Green/Blue Gradient */}
-      <aside className="hidden md:flex w-72 h-screen fixed z-20 flex-col border-r border-farm-blue-200 bg-gradient-to-b from-agri-green-100 to-farm-blue-100 backdrop-blur-xl shadow-xl transition-colors duration-300">
-        <div className="p-8 border-b border-agri-green-200">
-          <motion.h1
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-3xl font-black text-black flex items-center gap-3"
+      {/* Desktop Sidebar - Solid */}
+      <aside className="hidden md:flex w-80 h-screen fixed z-30 flex-col bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800">
+        {/* Logo Section */}
+        <div className="p-8 pb-4">
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex items-center gap-4"
           >
-            <span className="w-10 h-10 bg-black rounded-xl flex items-center justify-center text-white text-xl shadow-lg">K</span>
-            {t('appTitle')}
-          </motion.h1>
+            <div className="w-12 h-12 bg-green-600 rounded-xl flex items-center justify-center text-white shadow-lg">
+              <Icons.Logo size={28} className="text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold font-display tracking-tight text-gray-900 dark:text-white">Krishi-Net</h1>
+              <p className="text-xs font-bold tracking-widest text-green-600 uppercase">Smart Farming</p>
+            </div>
+          </motion.div>
         </div>
 
-        {/* User Mini Profile */}
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.1 }}
-          className="mx-4 mt-6 p-4 rounded-2xl bg-white/50 border-2 border-agri-green-300 backdrop-blur-sm"
-        >
-          <p className="font-bold text-black">{user?.name || 'Farmer'}</p>
-          <div className="flex items-center gap-1 text-xs text-black font-semibold mt-1">
-            <MapPin className="w-3 h-3 text-farm-blue-600" />
-            <span className="truncate">{user?.location || 'India'}</span>
+        {/* User Profile Card - Simple */}
+        <div className="px-6 py-4">
+          <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center gap-3">
+            <div className="relative">
+              <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center text-green-700 dark:text-green-400 font-bold text-lg">
+                {user?.name?.[0] || 'F'}
+              </div>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-sm text-gray-900 dark:text-white truncate">{user?.name || 'Farmer'}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user?.location || 'India'}</p>
+            </div>
           </div>
-        </motion.div>
+        </div>
 
-        <nav className="flex-1 px-4 mt-8 space-y-2 overflow-y-auto">
-          {navItems.map((item) => (
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              key={item.id}
-              onClick={() => {
-                if (navigator.vibrate) navigator.vibrate(5);
-                setView(item.id);
-              }}
-              className={`w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl font-bold transition-all duration-200 border-2 ${currentView === item.id
-                ? 'bg-black text-white border-black shadow-lg'
-                : 'bg-white/40 border-transparent text-black hover:bg-white hover:border-agri-green-300'
-                }`}
-            >
-              <item.icon className={`w-5 h-5 ${currentView === item.id ? 'text-agri-green-400' : 'text-black'}`} />
-              {item.label}
-            </motion.button>
-          ))}
+        {/* Navigation */}
+        <nav className="flex-1 px-4 mt-2 space-y-1 overflow-y-auto no-scrollbar">
+          {navItems.map((item) => {
+            const isActive = currentView === item.id;
+            return (
+              <motion.button
+                key={item.id}
+                onClick={() => setView(item.id)}
+                whileHover={{ x: 4 }}
+                whileTap={{ scale: 0.98 }}
+                className={`w-full flex items-center gap-4 px-5 py-4 rounded-xl font-medium transition-all relative overflow-hidden group ${isActive
+                  ? 'text-harvest-green dark:text-sprout-green bg-gradient-to-r from-sprout-green/20 to-transparent'
+                  : 'text-gray-600 dark:text-gray-300 hover:text-harvest-green dark:hover:text-sprout-green hover:bg-white/20'
+                  }`}
+              >
+                {isActive && (
+                  <motion.div
+                    layoutId="activeNav"
+                    className="absolute left-0 top-0 bottom-0 w-1 bg-sprout-green rounded-r-full"
+                  />
+                )}
+                <item.Icon
+                  size={22}
+                  className={`transition-colors duration-300 ${isActive ? 'text-inherit drop-shadow-lg' : 'group-hover:text-inherit'}`}
+                />
+                <span className="text-base tracking-wide">{item.label}</span>
+              </motion.button>
+            )
+          })}
         </nav>
 
-        <div className="p-4 border-t border-agri-green-200 flex items-center justify-between gap-2">
-          {/* Voice Button Desktop */}
+        {/* Bottom Actions */}
+        <div className="p-6 border-t border-glass-border grid grid-cols-3 gap-3">
           <button
             onClick={startListening}
-            className="p-3 rounded-xl bg-farm-blue-200 text-black border-2 border-farm-blue-300 hover:bg-farm-blue-300 transition-colors"
+            className="flex items-center justify-center p-3 rounded-xl bg-sky-morning/10 text-sky-600 hover:bg-sky-morning/20 border border-sky-morning/20 transition-all hover:scale-105"
             title="Voice Command"
           >
-            <Mic className="w-5 h-5" />
+            <Mic size={20} />
           </button>
-
           <button
             onClick={toggleTheme}
-            className="p-3 rounded-xl bg-agri-green-200 text-black border-2 border-agri-green-300 hover:bg-agri-green-300 transition-colors"
+            className="flex items-center justify-center p-3 rounded-xl bg-earth-golden/10 text-earth-amber hover:bg-earth-golden/20 border border-earth-golden/20 transition-all hover:scale-105"
           >
-            {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
           </button>
-
           <button
             onClick={handleLogout}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white text-black border-2 border-gray-200 hover:bg-gray-100 rounded-xl font-bold transition-colors"
+            className="flex items-center justify-center p-3 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20 transition-all hover:scale-105"
           >
-            <LogOut className="w-5 h-5" />
+            <LogOut size={20} />
           </button>
         </div>
       </aside>
 
-      {/* Mobile Header */}
-      <div className="md:hidden fixed top-0 left-0 right-0 bg-gradient-to-r from-agri-green-100 to-farm-blue-100 border-b border-agri-green-300 p-4 z-30 flex justify-between items-center shadow-sm">
-        <div className="flex items-center gap-2">
-          <span className="w-8 h-8 bg-black rounded-lg flex items-center justify-center text-white text-lg font-bold">K</span>
-          <span className="font-black text-lg text-black">{t('appTitle')}</span>
+      {/* Mobile Header - Solid */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 p-4 flex justify-between items-center shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-green-600 rounded-lg flex items-center justify-center text-white shadow-sm">
+            <Icons.Logo size={20} />
+          </div>
+          <span className="font-display font-bold text-xl text-gray-900 dark:text-white tracking-tight">Krishi-Net</span>
         </div>
         <div className="flex gap-2">
-          <button onClick={startListening} className="p-2 text-black bg-white/50 rounded-full">
-            <Mic className="w-5 h-5" />
+          <button onClick={startListening} className="p-2.5 bg-gray-100 dark:bg-gray-800 rounded-full text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700">
+            <Mic size={20} />
           </button>
-          <button onClick={() => setView(AppView.SETTINGS)} className="p-2 text-black bg-white/50 rounded-full">
-            <Settings className="w-5 h-5" />
+          <button onClick={toggleTheme} className="p-2.5 bg-gray-100 dark:bg-gray-800 rounded-full text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700">
+            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
           </button>
-          <button onClick={toggleTheme} className="p-2 text-black bg-white/50 rounded-full">
-            {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-          </button>
-          <button onClick={handleLogout} className="p-2 text-black bg-white/50 rounded-full">
-            <LogOut className="w-5 h-5" />
+          <button onClick={() => setView(AppView.SETTINGS)} className="p-2.5 bg-gray-100 dark:bg-gray-800 rounded-full text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700">
+            <Icons.Profile size={20} />
           </button>
         </div>
       </div>
 
-      {/* Main Content */}
-      <main className="flex-1 md:ml-72 p-4 md:p-8 pt-20 md:pt-8 pb-24 md:pb-8 max-w-[1600px] mx-auto w-full z-10">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentView}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.3 }}
-          >
-            {children}
-          </motion.div>
-        </AnimatePresence>
+      {/* Main Content Area */}
+      <main className="flex-1 md:ml-80 relative z-10 h-screen overflow-y-auto pt-20 md:pt-0 scroll-smooth">
+        <div className="p-4 md:p-8 max-w-7xl mx-auto pb-28 md:pb-12">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentView}
+              initial={{ opacity: 0, scale: 0.98, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 1.02, filter: "blur(10px)" }}
+              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              className="w-full h-full"
+            >
+              {children}
+            </motion.div>
+          </AnimatePresence>
+        </div>
       </main>
 
       {/* Mobile Bottom Nav */}
-      <nav className="md:hidden fixed bottom-4 left-4 right-4 bg-black text-white shadow-2xl rounded-2xl flex justify-around p-2 z-30 border-2 border-agri-green-400">
-        {navItems.slice(0, 5).map((item) => (
-          <motion.button
-            whileTap={{ scale: 0.8 }}
-            key={item.id}
-            onClick={() => {
-              if (navigator.vibrate) navigator.vibrate(5);
-              setView(item.id);
-            }}
-            className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${currentView === item.id ? 'text-agri-green-400' : 'text-gray-400'
-              }`}
-          >
-            <item.icon className="w-6 h-6" />
-          </motion.button>
-        ))}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400 flex justify-between px-6 py-3">
+        {navItems.slice(0, 5).map((item) => {
+          const isActive = currentView === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => {
+                if (navigator.vibrate) navigator.vibrate(10);
+                setView(item.id);
+              }}
+              className={`flex flex-col items-center gap-1 transition-all duration-200 ${isActive ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}
+            >
+              <item.Icon size={24} />
+              <span className="text-[10px] font-medium">{item.label}</span>
+            </button>
+          )
+        })}
       </nav>
     </div>
   );

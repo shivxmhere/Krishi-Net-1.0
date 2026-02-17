@@ -24,6 +24,10 @@ function AppContent() {
   const [showAppTour, setShowAppTour] = useState(false);
 
   useEffect(() => {
+    console.log("Krishi-Net: App Component Rendered");
+    console.log("Krishi-Net: User state:", user);
+    console.log("Krishi-Net: Loading state:", loading);
+
     // 1. Check App Tour Status (different from User Onboarding)
     const tourCompleted = localStorage.getItem('krishi_tour_completed');
     if (!tourCompleted) {

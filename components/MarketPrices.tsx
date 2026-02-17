@@ -1,22 +1,26 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, MapPin, TrendingUp, DollarSign, Navigation, ShoppingBag, Phone, Loader2, Calculator, BrainCircuit, Crosshair } from 'lucide-react';
+import { Search, MapPin, TrendingUp, DollarSign, Navigation, ShoppingBag, Phone, Loader2, Calculator, BrainCircuit, Crosshair, ArrowRight } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { getHistoricalData } from '../constants';
+import { motion, AnimatePresence } from 'framer-motion';
+import { GlassCard } from './ui/GlassCard';
+import { Icons } from './ui/IconSystem';
+import { Button } from './ui/Button';
 
-// --- HYBRID DATA STRATEGY: Default Data avoids empty screen ---
+// Default Data
 const DEFAULT_JAMMU_DATA: MarketData = {
   trendingCrops: [
-    { name: "Basmati Rice (RS Pura)", price: "₹3,850", trend: "up", demand: "Very High" },
-    { name: "Apple (Kashmiri)", price: "₹6,200", trend: "stable", demand: "High" },
-    { name: "Walnut (Kagzi)", price: "₹28,500", trend: "up", demand: "Medium" },
-    { name: "Maize (Hybrid)", price: "₹2,150", trend: "down", demand: "Medium" },
-    { name: "Rajmash (Bhaderwah)", price: "₹14,000", trend: "up", demand: "High" }
+    { name: "Basmati Rice", price: "₹3,850", trend: "up", demand: "Very High" },
+    { name: "Kashmiri Apple", price: "₹6,200", trend: "stable", demand: "High" },
+    { name: "Walnut", price: "₹28,500", trend: "up", demand: "Medium" },
+    { name: "Maize", price: "₹2,150", trend: "down", demand: "Medium" },
+    { name: "Rajmash", price: "₹14,000", trend: "up", demand: "High" }
   ],
   mandis: [
-    { name: "Narwal Mandi (Jammu)", distance: "8 km", bestFor: "Basmati, Fruits, Veg" },
+    { name: "Narwal Mandi", distance: "8 km", bestFor: "Basmati, Fruits, Veg" },
     { name: "Udhampur Mandi", distance: "65 km", bestFor: "Maize, Seasonal Veg" },
-    { name: "Parimpora Mandi (Srinagar)", distance: "260 km", bestFor: "Apple, Walnut, Saffron" }
+    { name: "Parimpora Mandi", distance: "260 km", bestFor: "Apple, Walnut, Saffron" }
   ],
   buyers: [
     { name: "JK Agro Industries", type: "Processor", contact: "+91 94191 12345", requirements: "Buying high-grade RS Pura Basmati" },
@@ -42,23 +46,14 @@ const MarketPrices: React.FC = () => {
   const [isLocating, setIsLocating] = useState(false);
   const [manualMode, setManualMode] = useState(false);
   const [tempLocation, setTempLocation] = useState({ state: '', district: '' });
-
-  // Use DEFAULT data initially so screen is NEVER empty
   const [marketData, setMarketData] = useState<MarketData>(DEFAULT_JAMMU_DATA);
   const [isRefreshing, setIsRefreshing] = useState(false);
-
-  // Chart State
   const [selectedCropIndex, setSelectedCropIndex] = useState(0);
   const [timeRange, setTimeRange] = useState<TimeRange>('1M');
-
-  // Profit Calc State
-  const [quantity, setQuantity] = useState<number>(10); // Quintals
+  const [quantity, setQuantity] = useState<number>(10);
   const [costPerQuintal, setCostPerQuintal] = useState<number>(0);
 
-  // Auto-detect location on mount
-  useEffect(() => {
-    detectLocation();
-  }, []);
+  useEffect(() => { detectLocation(); }, []);
 
   const detectLocation = () => {
     setIsLocating(true);
@@ -67,69 +62,43 @@ const MarketPrices: React.FC = () => {
         async (position) => {
           try {
             const { latitude, longitude } = position.coords;
-            // Use free reverse geocoding API
             const response = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`);
             const data = await response.json();
-
             const detectedState = data.principalSubdivision || 'Jammu and Kashmir';
             const detectedDistrict = data.city || data.locality || 'Jammu';
-
             setLocation({ state: detectedState, district: detectedDistrict });
             fetchMarketIntelligence(detectedState, detectedDistrict);
-          } catch (error) {
-            console.error("Geo Error:", error);
-            // Fallback is already set (Jammu)
-          } finally {
-            setIsLocating(false);
-          }
+          } catch (error) { console.error("Geo Error:", error); }
+          finally { setIsLocating(false); }
         },
-        (error) => {
-          console.warn("Location permission denied or unavailable", error);
-          setIsLocating(false);
-        }
+        (error) => { console.warn(error); setIsLocating(false); }
       );
-    } else {
-      setIsLocating(false);
-    }
+    } else { setIsLocating(false); }
   };
 
   useEffect(() => {
-    // Only fetch if not already fetched by detectLocation (to avoid double calls)
-    if (!isLocating) {
-      fetchMarketIntelligence(location.state, location.district);
-    }
+    if (!isLocating) fetchMarketIntelligence(location.state, location.district);
   }, [location, language, isLocating]);
 
   const fetchMarketIntelligence = async (state: string, district: string) => {
     setIsRefreshing(true);
     try {
-      const response = await fetch(`${(import.meta as any).env.VITE_API_URL || 'http://localhost:8000'}/api/v1/market/analysis`, {
+      const api = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${api}/api/v1/market/analysis`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          location: `${district}, ${state}`,
-          state: state,
-          district: district,
-          language: language
-        })
+        body: JSON.stringify({ location: `${district}, ${state}`, state, district, language })
       });
 
       if (response.ok) {
         const data = await response.json();
-        // Only update if we got valid data structure
-        if (data && data.trendingCrops && data.trendingCrops.length > 0) {
+        if (data && data.trendingCrops?.length > 0) {
           setMarketData(data);
-          // Verify index logic
-          if (selectedCropIndex >= data.trendingCrops.length) {
-            setSelectedCropIndex(0);
-          }
+          if (selectedCropIndex >= data.trendingCrops.length) setSelectedCropIndex(0);
         }
       }
-    } catch (error) {
-      console.warn("Using Offline Data for Market");
-    } finally {
-      setIsRefreshing(false);
-    }
+    } catch (error) { console.warn("Using Offline Data"); }
+    finally { setIsRefreshing(false); }
   };
 
   const handleManualLocationSubmit = (e: React.FormEvent) => {
@@ -142,14 +111,12 @@ const MarketPrices: React.FC = () => {
 
   const selectedCrop = marketData ? marketData.trendingCrops[selectedCropIndex] : DEFAULT_JAMMU_DATA.trendingCrops[0];
 
-  // Generate chart data on the fly based on current price
   const chartData = useMemo(() => {
     if (!selectedCrop) return [];
     const price = parseFloat(selectedCrop.price.replace(/[^\d.]/g, '')) || 2000;
     return getHistoricalData(price, timeRange);
   }, [selectedCrop, timeRange]);
 
-  // Update cost when crop changes
   useEffect(() => {
     if (selectedCrop) {
       const price = parseFloat(selectedCrop.price.replace(/[^\d.]/g, '')) || 2000;
@@ -160,299 +127,257 @@ const MarketPrices: React.FC = () => {
   const profit = useMemo(() => {
     if (!selectedCrop) return 0;
     const price = parseFloat(selectedCrop.price.replace(/[^\d.]/g, '')) || 0;
-    const revenue = price * quantity;
-    const totalCost = costPerQuintal * quantity;
-    return revenue - totalCost;
+    return (price * quantity) - (costPerQuintal * quantity);
   }, [selectedCrop, quantity, costPerQuintal]);
 
   return (
-    <div className="h-full bg-gray-50 dark:bg-gray-900 p-4 overflow-y-auto pb-24">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
-            <TrendingUp className="w-6 h-6 text-green-600" />
-            {t('marketPrices')}
-          </h1>
-          <div className="flex items-center gap-2 mt-1">
-            <p className="text-gray-500 dark:text-gray-400 text-sm flex items-center gap-2">
-              Insights for <span className="font-bold text-gray-700 dark:text-gray-200">{location.district}, {location.state}</span>
-              {isRefreshing && <Loader2 className="w-3 h-3 animate-spin text-green-600" />}
-            </p>
-            <button
-              onClick={() => setManualMode(!manualMode)}
-              className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded text-gray-600 dark:text-gray-300 hover:bg-gray-300 transition-colors"
-            >
-              Change
-            </button>
+    <div className="h-full space-y-6 pb-24">
+      {/* Header & Location */}
+      <GlassCard className="p-4 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-gradient-to-br from-earth-golden to-earth-amber rounded-xl flex items-center justify-center text-white shadow-lg">
+            <Icons.Market size={28} />
+          </div>
+          <div>
+            <h1 className="text-xl font-display font-bold text-deep-earth dark:text-white flex items-center gap-2">
+              {t('marketPrices')}
+              {isRefreshing && <Loader2 size={16} className="animate-spin text-earth-amber" />}
+            </h1>
+            <div className="flex items-center gap-2 text-earth-soil dark:text-gray-400 text-sm">
+              <MapPin size={14} />
+              <span className="font-bold">{location.district}, {location.state}</span>
+              <button onClick={() => setManualMode(!manualMode)} className="text-xs text-harvest-green dark:text-sprout-green font-bold underline ml-2">Change</button>
+            </div>
           </div>
         </div>
+        <Button variant="secondary" size="sm" onClick={detectLocation} disabled={isLocating} className="rounded-full">
+          {isLocating ? <Loader2 size={16} className="animate-spin mr-2" /> : <Crosshair size={16} className="mr-2" />}
+          {isLocating ? "Locating..." : "Locate Me"}
+        </Button>
+      </GlassCard>
 
-        <button
-          onClick={detectLocation}
-          disabled={isLocating}
-          className="flex items-center gap-2 bg-white dark:bg-gray-800 px-4 py-2 rounded-full shadow-sm text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 transition-colors"
-        >
-          {isLocating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Crosshair className="w-4 h-4" />}
-          {isLocating ? "Locating..." : "Track My Location"}
-        </button>
-      </div>
-
-      {/* Manual Location Form */}
       {manualMode && (
-        <form onSubmit={handleManualLocationSubmit} className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm mb-6 border border-blue-100 dark:border-blue-900 animate-fade-in">
-          <h3 className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-3">Set Location Manually</h3>
-          <div className="flex gap-4">
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white/80 dark:bg-gray-800 p-4 rounded-xl shadow-lg border border-glass-border">
+          <form onSubmit={handleManualLocationSubmit} className="flex gap-2">
             <input
-              type="text"
-              placeholder="State (e.g. Punjab)"
-              className="flex-1 p-2 border rounded-lg active:ring-2 ring-blue-500 outline-none dark:bg-gray-700 dark:text-white"
-              onChange={(e) => setTempLocation({ ...tempLocation, state: e.target.value })}
-              required
+              placeholder="State"
+              className="flex-1 p-2 rounded-lg border border-gray-200 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              value={tempLocation.state}
+              onChange={e => setTempLocation({ ...tempLocation, state: e.target.value })}
             />
             <input
-              type="text"
-              placeholder="District (e.g. Ludhiana)"
-              className="flex-1 p-2 border rounded-lg active:ring-2 ring-blue-500 outline-none dark:bg-gray-700 dark:text-white"
-              onChange={(e) => setTempLocation({ ...tempLocation, district: e.target.value })}
-              required
+              placeholder="District"
+              className="flex-1 p-2 rounded-lg border border-gray-200 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              value={tempLocation.district}
+              onChange={e => setTempLocation({ ...tempLocation, district: e.target.value })}
             />
-            <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold">
-              Update
-            </button>
-          </div>
-        </form>
+            <Button type="submit" size="sm">Update</Button>
+          </form>
+        </motion.div>
       )}
 
-      <div className="space-y-6">
-
-        {/* AI Advisory Banner */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
-          <div className="relative z-10 flex items-start gap-4">
-            <div className="bg-white/20 p-3 rounded-full backdrop-blur-sm">
-              <BrainCircuit className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h3 className="font-bold text-lg mb-1">AI Market Insight</h3>
-              <p className="text-blue-100 leading-relaxed">{marketData.advisory}</p>
-            </div>
+      {/* Ticker / Advisory */}
+      <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-deep-earth to-dark-canopy text-white p-4 shadow-lg border border-glass-border">
+        <div className="flex items-start gap-4 z-10 relative">
+          <div className="bg-white/10 p-2 rounded-full">
+            <BrainCircuit size={20} className="text-sprout-green" />
           </div>
-          {/* Decorative circles */}
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
-          <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full -ml-12 -mb-12"></div>
+          <div>
+            <h3 className="font-bold text-sprout-green text-xs uppercase tracking-widest mb-1">AI Market Insight</h3>
+            <p className="text-sm font-medium opacity-90">{marketData.advisory}</p>
+          </div>
         </div>
+        <div className="absolute top-0 right-0 w-32 h-32 bg-sprout-green/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+      </div>
 
-        {/* Tabs */}
-        <div className="bg-white dark:bg-gray-800 p-1 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex overflow-x-auto">
-          {[
-            { id: 'trends', label: 'Price Charts', icon: TrendingUp },
-            { id: 'mandis', label: 'Nearby Mandis', icon: Navigation },
-            { id: 'buyers', label: 'Verified Buyers', icon: ShoppingBag },
-            { id: 'profit', label: 'Profit Calculator', icon: Calculator }
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-all whitespace-nowrap flex-1 justify-center ${activeTab === tab.id
-                ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 shadow-sm'
-                : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                }`}
+      {/* Tabs */}
+      <div className="flex bg-white/50 dark:bg-black/20 p-1 rounded-xl border border-glass-border overflow-x-auto no-scrollbar">
+        {[
+          { id: 'trends', label: 'Price Trends', icon: TrendingUp },
+          { id: 'mandis', label: 'Nearby Mandis', icon: Navigation },
+          { id: 'buyers', label: 'Buyers', icon: ShoppingBag },
+          { id: 'profit', label: 'Calculator', icon: Calculator }
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as any)}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === tab.id
+                ? 'bg-harvest-green text-white shadow-md'
+                : 'text-earth-soil dark:text-gray-400 hover:bg-white/30 dark:hover:bg-white/5'
+              }`}
+          >
+            <tab.icon size={16} /> {tab.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="min-h-[400px]">
+        <AnimatePresence mode="wait">
+          {activeTab === 'trends' && (
+            <motion.div
+              key="trends"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="space-y-6"
             >
-              <tab.icon className="w-4 h-4" />
-              {tab.label}
-            </button>
-          ))}
-        </div>
+              {/* Crop Scroller */}
+              <div className="flex overflow-x-auto gap-3 pb-2 no-scrollbar">
+                {marketData.trendingCrops.map((crop, i) => (
+                  <GlassCard
+                    key={i}
+                    onClick={() => setSelectedCropIndex(i)}
+                    className={`min-w-[140px] p-4 cursor-pointer transition-all border-2 ${selectedCropIndex === i
+                        ? 'border-harvest-green bg-gradient-to-br from-harvest-green/10 to-transparent scale-105'
+                        : 'border-transparent hover:border-glass-border'
+                      }`}
+                  >
+                    <p className="text-sm font-bold text-deep-earth dark:text-white truncate">{crop.name}</p>
+                    <p className="text-lg font-black text-harvest-green dark:text-sprout-green mt-1">{crop.price}</p>
+                    <div className={`mt-2 text-xs font-bold flex items-center gap-1 ${crop.trend === 'up' ? 'text-green-600' : 'text-red-500'}`}>
+                      {crop.trend === 'up' ? <TrendingUp size={12} /> : <TrendingUp size={12} className="rotate-180" />}
+                      {crop.trend === 'up' ? 'Rising' : 'Falling'}
+                    </div>
+                  </GlassCard>
+                ))}
+              </div>
 
-        {/* TAB CONTENT */}
+              {selectedCrop && (
+                <GlassCard className="p-6">
+                  <div className="flex justify-between items-end mb-6">
+                    <div>
+                      <h3 className="text-4xl font-display font-bold text-deep-earth dark:text-white">{selectedCrop.price}</h3>
+                      <p className="text-earth-soil dark:text-gray-400 font-medium">{selectedCrop.name} Price History</p>
+                    </div>
+                    <div className="flex bg-gray-100 dark:bg-white/10 rounded-lg p-1">
+                      {(['1W', '1M', '3M', '6M'] as TimeRange[]).map((r) => (
+                        <button
+                          key={r}
+                          onClick={() => setTimeRange(r)}
+                          className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${timeRange === r
+                              ? 'bg-white dark:bg-deep-earth shadow-sm text-deep-earth dark:text-white'
+                              : 'text-gray-500 dark:text-gray-400'
+                            }`}
+                        >
+                          {r}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-        {/* 1. PRICE TRENDS (CHARTS) */}
-        {activeTab === 'trends' && (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
-            {/* Crop Selector */}
-            <div className="flex overflow-x-auto gap-2 mb-6 pb-2">
-              {marketData.trendingCrops?.map((crop, i) => (
-                <button
-                  key={i}
-                  onClick={() => setSelectedCropIndex(i)}
-                  className={`px-4 py-2 rounded-full border text-sm font-medium whitespace-nowrap transition-colors ${selectedCropIndex === i
-                    ? 'bg-green-600 text-white border-green-600'
-                    : 'border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300'
-                    }`}
-                >
-                  {crop.name}
-                </button>
+                  <div className="h-[300px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={chartData}>
+                        <defs>
+                          <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#1a6b3c" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="#1a6b3c" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
+                        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} minTickGap={30} />
+                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} domain={['auto', 'auto']} />
+                        <Tooltip
+                          contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', background: 'rgba(255, 255, 255, 0.9)' }}
+                        />
+                        <Area type="monotone" dataKey="price" stroke="#1a6b3c" strokeWidth={3} fillOpacity={1} fill="url(#colorPrice)" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </GlassCard>
+              )}
+            </motion.div>
+          )}
+
+          {activeTab === 'mandis' && (
+            <motion.div key="mandis" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+              {marketData.mandis.map((mandi, i) => (
+                <GlassCard key={i} className="p-6 flex items-center justify-between group">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/20 rounded-full flex items-center justify-center text-orange-600">
+                      <Navigation size={24} />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-lg text-deep-earth dark:text-white">{mandi.name}</h3>
+                      <p className="text-sm font-medium text-earth-soil dark:text-gray-400">{mandi.distance} away</p>
+                      <span className="inline-block mt-2 text-xs font-bold bg-gray-100 dark:bg-white/10 px-2 py-1 rounded text-gray-600 dark:text-gray-300">
+                        {mandi.bestFor}
+                      </span>
+                    </div>
+                  </div>
+                  <ArrowRight className="text-gray-300 group-hover:text-orange-500 transition-colors" />
+                </GlassCard>
               ))}
-            </div>
+            </motion.div>
+          )}
 
-            {selectedCrop && (
-              <>
-                <div className="flex justify-between items-end mb-6">
+          {activeTab === 'buyers' && (
+            <motion.div key="buyers" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid md:grid-cols-2 gap-4">
+              {marketData.buyers.map((buyer, i) => (
+                <GlassCard key={i} className="p-6 hover:border-sprout-green/50 transition-colors">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h3 className="font-bold text-lg text-deep-earth dark:text-white">{buyer.name}</h3>
+                      <span className="text-xs font-bold bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-2.5 py-1 rounded-full">{buyer.type}</span>
+                    </div>
+                    <a href={`tel:${buyer.contact}`} className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center text-white shadow-lg hover:scale-105 transition-transform">
+                      <Phone size={18} />
+                    </a>
+                  </div>
+                  <div className="pt-4 border-t border-glass-border">
+                    <p className="text-xs font-bold text-earth-soil/60 uppercase tracking-wider mb-1">Requirements</p>
+                    <p className="text-sm font-medium text-deep-earth dark:text-gray-300">{buyer.requirements}</p>
+                  </div>
+                </GlassCard>
+              ))}
+            </motion.div>
+          )}
+
+          {activeTab === 'profit' && selectedCrop && (
+            <motion.div key="profit" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <GlassCard className="p-8">
+                <h3 className="font-bold text-xl text-deep-earth dark:text-white mb-8 flex items-center gap-3">
+                  <Calculator size={24} className="text-earth-golden" />
+                  Profit Estimator for <span className="text-harvest-green dark:text-sprout-green">{selectedCrop.name}</span>
+                </h3>
+                <div className="grid md:grid-cols-2 gap-8 mb-8">
                   <div>
-                    <h3 className="text-3xl font-bold text-gray-900 dark:text-white">{selectedCrop.price}</h3>
-                    <p className={`flex items-center gap-1 text-sm font-medium mt-1 ${selectedCrop.trend === 'up' ? 'text-green-500' : 'text-red-500'
-                      }`}>
-                      {selectedCrop.trend === 'up' ? <TrendingUp className="w-4 h-4" /> : <TrendingUp className="w-4 h-4 rotate-180" />}
-                      {selectedCrop.trend === 'up' ? 'Trending Up' : 'Trending Down'} • High Demand
-                    </p>
-                  </div>
-                  <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-                    {(['1W', '1M', '3M', '6M'] as TimeRange[]).map((r) => (
-                      <button
-                        key={r}
-                        onClick={() => setTimeRange(r)}
-                        className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${timeRange === r
-                          ? 'bg-white dark:bg-gray-600 shadow-sm text-black dark:text-white'
-                          : 'text-gray-500 dark:text-gray-400'
-                          }`}
-                      >
-                        {r}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="h-[300px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={chartData}>
-                      <defs>
-                        <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
-                          <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                      <XAxis
-                        dataKey="date"
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fill: '#9ca3af', fontSize: 12 }}
-                        minTickGap={30}
+                    <label className="text-sm font-bold text-earth-soil dark:text-gray-400 mb-2 block">Quantity to Sell</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={quantity}
+                        onChange={e => setQuantity(Number(e.target.value))}
+                        className="w-full p-4 bg-gray-50 dark:bg-black/30 border border-gray-200 dark:border-gray-700 rounded-xl text-2xl font-black outline-none focus:ring-2 focus:ring-harvest-green text-deep-earth dark:text-white"
                       />
-                      <YAxis
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fill: '#9ca3af', fontSize: 12 }}
-                        domain={['auto', 'auto']}
-                      />
-                      <Tooltip
-                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                      />
-                      <Area
-                        type="monotone"
-                        dataKey="price"
-                        stroke="#10b981"
-                        strokeWidth={3}
-                        fillOpacity={1}
-                        fill="url(#colorPrice)"
-                        animationDuration={1000}
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* 2. NEARBY MANDIS */}
-        {activeTab === 'mandis' && (
-          <div className="grid gap-4">
-            {marketData.mandis?.map((mandi, i) => (
-              <div key={i} className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm flex items-center justify-between border-l-4 border-orange-500">
-                <div className="flex items-center gap-4">
-                  <div className="bg-orange-100 dark:bg-orange-900/30 p-3 rounded-full">
-                    <Navigation className="w-6 h-6 text-orange-600" />
+                      <span className="absolute right-4 top-4 text-sm font-bold text-gray-400 mt-1">Quintals</span>
+                    </div>
                   </div>
                   <div>
-                    <h3 className="font-bold text-lg text-gray-800 dark:text-white">{mandi.name}</h3>
-                    <p className="text-sm text-gray-500">{mandi.distance} away</p>
-                    <span className="inline-block mt-1 text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-gray-600 dark:text-gray-300">
-                      Best for: {mandi.bestFor}
-                    </span>
+                    <label className="text-sm font-bold text-earth-soil dark:text-gray-400 mb-2 block">Cost per Quintal</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={costPerQuintal}
+                        onChange={e => setCostPerQuintal(Number(e.target.value))}
+                        className="w-full p-4 bg-gray-50 dark:bg-black/30 border border-gray-200 dark:border-gray-700 rounded-xl text-2xl font-black outline-none focus:ring-2 focus:ring-harvest-green text-deep-earth dark:text-white"
+                      />
+                      <span className="absolute right-4 top-4 text-sm font-bold text-gray-400 mt-1">₹</span>
+                    </div>
                   </div>
                 </div>
-                <button className="bg-gray-100 dark:bg-gray-700 p-3 rounded-full text-gray-600 dark:text-gray-300 hover:bg-orange-50 hover:text-orange-600 transition-colors">
-                  <Navigation className="w-5 h-5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* 3. VERIFIED BUYERS */}
-        {activeTab === 'buyers' && (
-          <div className="grid md:grid-cols-2 gap-4">
-            {marketData.buyers?.map((buyer, i) => (
-              <div key={i} className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow">
-                <div className="flex justify-between items-start mb-3">
+                <div className="bg-gradient-to-r from-harvest-green to-leaf-green p-6 rounded-2xl text-white flex justify-between items-center shadow-lg shadow-green-500/20">
                   <div>
-                    <h3 className="font-bold text-lg text-gray-800 dark:text-white">{buyer.name}</h3>
-                    <span className="text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-600 px-2 py-0.5 rounded-full">{buyer.type}</span>
+                    <p className="font-medium opacity-90">Estimated Net Profit</p>
+                    <p className="text-xs opacity-75">Based on market price: {selectedCrop.price}</p>
                   </div>
-                  <a href={`tel:${buyer.contact}`} className="bg-green-500 text-white p-2 rounded-full shadow-lg shadow-green-500/30 hover:bg-green-600 transition-colors">
-                    <Phone className="w-4 h-4" />
-                  </a>
+                  <p className="text-4xl font-display font-bold">₹{profit.toLocaleString()}</p>
                 </div>
-                <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
-                  <p className="text-xs text-gray-500 uppercase font-bold mb-1">Requirements</p>
-                  <p className="text-sm text-gray-700 dark:text-gray-300">{buyer.requirements}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+              </GlassCard>
+            </motion.div>
+          )}
 
-        {/* 4. PROFIT CALCULATOR */}
-        {activeTab === 'profit' && selectedCrop && (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 animate-fade-in">
-            <h3 className="font-bold text-xl text-gray-800 dark:text-white mb-6 flex items-center gap-2">
-              <Calculator className="w-6 h-6 text-gray-400" />
-              Profit Estimator for {selectedCrop.name}
-            </h3>
-
-            <div className="grid md:grid-cols-2 gap-6 mb-8">
-              <div>
-                <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 block">
-                  Quantity to Sell (Quintals)
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    value={quantity}
-                    onChange={(e) => setQuantity(Number(e.target.value))}
-                    className="w-full p-4 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-green-500 outline-none text-lg font-bold dark:text-white"
-                  />
-                  <span className="absolute right-4 top-4 text-gray-400 font-medium">Qtl</span>
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 block">
-                  Estimated Cost per Quintal (₹)
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    value={costPerQuintal}
-                    onChange={(e) => setCostPerQuintal(Number(e.target.value))}
-                    className="w-full p-4 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-green-500 outline-none text-lg font-bold dark:text-white"
-                  />
-                  <span className="absolute right-4 top-4 text-gray-400 font-medium">₹/Qtl</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-green-50 dark:bg-green-900/20 rounded-2xl p-6 flex flex-col md:flex-row justify-between items-center gap-4">
-              <div className="text-center md:text-left">
-                <p className="text-green-800 dark:text-green-300 font-medium mb-1">Estimated Net Profit</p>
-                <p className="text-sm text-green-600/70">Based on current market price of {selectedCrop.price}</p>
-              </div>
-              <div className="text-4xl font-black text-green-600 dark:text-green-400">
-                ₹{profit.toLocaleString()}
-              </div>
-            </div>
-          </div>
-        )}
+        </AnimatePresence>
       </div>
     </div>
   );

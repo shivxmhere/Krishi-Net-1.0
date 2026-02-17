@@ -10,10 +10,11 @@ interface WeatherWidgetProps {
 
 export default function WeatherWidget({ data, location }: WeatherWidgetProps) {
   const [insight, setInsight] = useState<string>("Analyzing weather conditions...");
-  
+
   useEffect(() => {
     const fetchInsight = async () => {
-      const summary = `${data.condition}, ${data.temp}C, ${data.forecast[1].rainChance}% rain chance tomorrow.`;
+      const tomorrowRain = data.forecast?.[1]?.rainChance ?? data.forecast?.[0]?.rainChance ?? 0;
+      const summary = `${data.condition}, ${data.temp}C, ${tomorrowRain}% rain chance tomorrow.`;
       const tip = await getWeatherInsight(summary);
       setInsight(tip);
     };
@@ -39,7 +40,7 @@ export default function WeatherWidget({ data, location }: WeatherWidgetProps) {
         </div>
 
         <div className="flex items-end gap-4 mb-8">
-          <h2 className="text-6xl font-black drop-shadow-sm">{data.temp}°</h2>
+          <h2 className="text-6xl font-black drop-shadow-sm text-white">{data.temp}°</h2>
           <p className="text-xl text-white mb-2 font-bold">{data.condition}</p>
         </div>
 
@@ -60,7 +61,7 @@ export default function WeatherWidget({ data, location }: WeatherWidgetProps) {
             <div className="flex items-center gap-2 text-white text-xs font-bold mb-1">
               <CloudRain className="w-3 h-3" /> Rain
             </div>
-            <p className="font-bold text-lg">{data.forecast[0].rainChance}%</p>
+            <p className="font-bold text-lg">{data.forecast?.[0]?.rainChance ?? 0}%</p>
           </div>
         </div>
 

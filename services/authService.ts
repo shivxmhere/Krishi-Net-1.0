@@ -2,7 +2,7 @@
 import { User } from '../types';
 
 // Use Vite environment variable for API URL or fallback to localhost
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
 
 const USER_STORAGE_KEY = 'krishi_net_user';
 const TOKEN_STORAGE_KEY = 'krishi_net_token';
