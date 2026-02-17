@@ -37,6 +37,12 @@ export interface DiseaseAnalysis {
   organicAlternatives: string[];
   prevention: string[];
   nextSteps: string;
+  products?: { // New: Product Recommendations
+    name: string;
+    description: string;
+    price: string; // e.g. "₹450"
+    buyLink: string;
+  }[];
 }
 
 export interface ScanRecord {
@@ -85,7 +91,7 @@ export enum AppView {
 export type Language = 'en' | 'hi' | 'ur';
 
 export const SUPPORTED_CROPS = [
-  "Rice (Paddy)", "Wheat", "Maize", "Cotton", "Sugarcane", 
-  "Potato", "Tomato", "Onion", "Soybean", "Mustard", 
+  "Rice (Paddy)", "Wheat", "Maize", "Cotton", "Sugarcane",
+  "Potato", "Tomato", "Onion", "Soybean", "Mustard",
   "Groundnut", "Chili", "Banana", "Mango", "Other"
 ];

@@ -1,134 +1,166 @@
 
 import { User } from '../types';
 
+// Use Vite environment variable for API URL or fallback to localhost
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
 const USER_STORAGE_KEY = 'krishi_net_user';
-const USERS_DB_KEY = 'krishi_net_users_db';
-const OTP_STORAGE_KEY = 'krishi_net_temp_otp';
+const TOKEN_STORAGE_KEY = 'krishi_net_token';
+
+// Helper to map Backend User (snake_case) -> Frontend User (camelCase)
+const mapBackendUser = (backendUser: any): User => {
+  return {
+    id: backendUser.id,
+    name: backendUser.name || backendUser.full_name || 'Farmer', // Handle both formats
+    email: backendUser.email || '',
+    phone: backendUser.phone || '',
+    // Polyfill missing fields
+    location: backendUser.location || 'India',
+    state: backendUser.state || 'Madhya Pradesh',
+    joinedDate: backendUser.joined_date || new Date().toISOString(),
+    // Handle boolean logic for onboarding
+    isOnboarded: typeof backendUser.isOnboarded === 'boolean'
+      ? backendUser.isOnboarded
+      : (backendUser.is_onboarded || false)
+  };
+};
 
 export const getCurrentUser = (): User | null => {
-  const stored = localStorage.getItem(USER_STORAGE_KEY);
-  return stored ? JSON.parse(stored) : null;
-};
+  const storedUser = localStorage.getItem(USER_STORAGE_KEY);
+  const storedToken = localStorage.getItem(TOKEN_STORAGE_KEY);
 
-// Simulation of sending OTP via SMS/Email Provider
-export const sendOTP = async (identifier: string): Promise<void> => {
-  await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate network delay
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  
-  // In a real app, this would call your backend API (Twilio/SendGrid)
-  // For this demo, we log it to console for the developer
-  console.log(`[Krishi-Net Notification Gateway] 📨 OTP sent to ${identifier}: ${otp}`);
-  
-  // Store OTP temporarily for verification (Simulating server-side session)
-  localStorage.setItem(OTP_STORAGE_KEY, JSON.stringify({ identifier, code: otp, expires: Date.now() + 300000 })); // 5 mins
-};
-
-export const verifyOTP = async (identifier: string, inputOtp: string): Promise<boolean> => {
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
-  const storedData = localStorage.getItem(OTP_STORAGE_KEY);
-  if (!storedData) return false;
-
-  const { identifier: savedId, code, expires } = JSON.parse(storedData);
-  
-  if (savedId !== identifier) return false;
-  if (Date.now() > expires) return false;
-  
-  if (inputOtp === code) {
-    localStorage.removeItem(OTP_STORAGE_KEY);
-    return true;
-  }
-  return false;
-};
-
-export const checkUserExists = async (identifier: string): Promise<boolean> => {
-  const dbRaw = localStorage.getItem(USERS_DB_KEY);
-  const db = dbRaw ? JSON.parse(dbRaw) : {};
-  return Object.values(db).some((u: any) => u.phone === identifier || u.email === identifier);
-};
-
-export const loginUser = async (identifier: string, password?: string): Promise<User> => {
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
-  const dbRaw = localStorage.getItem(USERS_DB_KEY);
-  const db = dbRaw ? JSON.parse(dbRaw) : {};
-  
-  // Find user by phone or email
-  const user = Object.values(db).find((u: any) => u.phone === identifier || u.email === identifier) as any;
-  
-  if (!user) {
-    throw new Error("Account not found. Please Sign Up.");
+  if (!storedUser || !storedToken) {
+    if (storedUser) logoutUser(); // Clean up partial state
+    return null;
   }
 
-  // If password provided, verify it
-  if (password && user.password !== password) {
-    throw new Error("Incorrect password.");
-  }
-  
-  const { password: _, ...safeUser } = user; // Remove password from session
-  localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(safeUser));
-  return safeUser;
-};
+  try {
+    const parsed = JSON.parse(storedUser);
 
-export const registerUser = async (userData: any): Promise<User> => {
-  await new Promise(resolve => setTimeout(resolve, 1500));
-
-  const newUser = { 
-    id: 'user_' + Date.now(),
-    name: userData.name,
-    phone: userData.phone,
-    email: userData.email,
-    location: userData.location,
-    state: userData.state,
-    joinedDate: new Date().toISOString(),
-    password: userData.password, // In real app, this must be hashed!
-    isOnboarded: false // New users start as not onboarded
-  };
-
-  const dbRaw = localStorage.getItem(USERS_DB_KEY);
-  const db = dbRaw ? JSON.parse(dbRaw) : {};
-  
-  const key = newUser.phone || newUser.email;
-  db[key] = newUser;
-  
-  localStorage.setItem(USERS_DB_KEY, JSON.stringify(db));
-
-  const { password: _, ...safeUser } = newUser;
-  localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(safeUser));
-  return safeUser;
-};
-
-export const completeOnboarding = async (user: User): Promise<User> => {
-  const updatedUser = { ...user, isOnboarded: true };
-  localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser));
-  
-  const dbRaw = localStorage.getItem(USERS_DB_KEY);
-  if (dbRaw) {
-    const db = JSON.parse(dbRaw);
-    const key = Object.keys(db).find(k => db[k].id === user.id);
-    if (key) {
-      db[key] = { ...db[key], isOnboarded: true };
-      localStorage.setItem(USERS_DB_KEY, JSON.stringify(db));
+    // Validate critical fields - if name is missing but full_name exists, migrate it
+    if (!parsed.name && parsed.full_name) {
+      console.log("Auto-fixing corrupted user data from storage...");
+      const fixed = mapBackendUser(parsed);
+      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(fixed)); // Save fix
+      return fixed;
     }
+
+    // If name is totally missing, treat as invalid/logged out
+    if (!parsed.name) {
+      console.warn("Invalid user data in storage (missing name), clearing session.");
+      logoutUser();
+      return null;
+    }
+
+    return parsed;
+  } catch (e) {
+    console.error("Error parsing user from storage:", e);
+    logoutUser(); // Clear bad data
+    return null;
   }
-  return updatedUser;
 };
 
 export const logoutUser = () => {
   localStorage.removeItem(USER_STORAGE_KEY);
+  localStorage.removeItem(TOKEN_STORAGE_KEY);
+  window.location.reload(); // Force reload to clear React state
 };
 
-export const updateUserProfile = async (updatedUser: User): Promise<User> => {
-  localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser));
-  
-  const dbRaw = localStorage.getItem(USERS_DB_KEY);
-  if (dbRaw) {
-    const db = JSON.parse(dbRaw);
-    const key = Object.keys(db).find(k => db[k].id === updatedUser.id);
-    if (key) {
-      db[key] = { ...db[key], ...updatedUser };
-      localStorage.setItem(USERS_DB_KEY, JSON.stringify(db));
+// Simulation of sending OTP (Nolonger used in UI but kept for compatibility or future use)
+export const sendOTP = async (identifier: string): Promise<void> => {
+  console.log("OTP requested for:", identifier);
+  // OTP is now handled/bypassed on backend
+};
+
+export const verifyOTP = async (identifier: string, inputOtp: string): Promise<boolean> => {
+  // OTP is bypassed
+  return true;
+};
+
+export const checkUserExists = async (identifier: string): Promise<boolean> => {
+  return false; // Always allow signup attempt, let backend handle duplicate error
+};
+
+// LOGIN: Connects to Real Backend
+export const loginUser = async (identifier: string, password?: string): Promise<User> => {
+  try {
+    const response = await fetch(`${API_URL}/api/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: identifier.includes('@') ? identifier : undefined,
+        phone: identifier.includes('@') ? undefined : identifier,
+        password: password
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || 'Login failed');
     }
+
+    const data = await response.json();
+    const user = mapBackendUser(data.user); // Transform
+
+    // Save Token & User
+    localStorage.setItem(TOKEN_STORAGE_KEY, data.access_token);
+    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+
+    return user;
+  } catch (error: any) {
+    console.error("Login Error:", error);
+    throw error;
   }
+};
+
+// REGISTER: Connects to Real Backend (Auto-Verifies)
+export const registerUser = async (userData: any): Promise<User> => {
+  try {
+    const response = await fetch(`${API_URL}/api/v1/auth/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        full_name: userData.name,
+        email: userData.email,
+        phone: userData.phone,
+        password: userData.password
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || 'Registration failed');
+    }
+
+    const data = await response.json();
+
+    // Auto-login after signup (Backend now returns token)
+    if (data.access_token) {
+      const user = mapBackendUser(data.user); // Transform
+
+      localStorage.setItem(TOKEN_STORAGE_KEY, data.access_token);
+      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+      return user;
+    } else {
+      // Fallback (should not happen with new backend logic)
+      throw new Error("Registration successful but no token received.");
+    }
+
+  } catch (error: any) {
+    console.error("Registration Error:", error);
+    throw error;
+  }
+};
+
+export const completeOnboarding = async (user: User): Promise<User> => {
+  const updatedUser = { ...user, isOnboarded: true };
+  localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser)); // Update local state
+  return updatedUser;
+};
+
+
+export const updateUserProfile = async (updatedUser: User): Promise<User> => {
+  // Local update only for demo, ideally would sync to backend
+  localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser));
   return updatedUser;
 };

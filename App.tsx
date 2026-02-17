@@ -15,6 +15,7 @@ import { AppView, User } from './types';
 import { getCurrentUser, completeOnboarding } from './services/authService';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { LanguageProvider } from './contexts/LanguageContext';
+import { VoiceProvider } from './contexts/VoiceContext';
 
 function AppContent() {
   const [user, setUser] = useState<User | null>(null);
@@ -114,11 +115,14 @@ function AppContent() {
   );
 }
 
+
 export default function App() {
   return (
     <ThemeProvider>
       <LanguageProvider>
-        <AppContent />
+        <VoiceProvider>
+          <AppContent />
+        </VoiceProvider>
       </LanguageProvider>
     </ThemeProvider>
   );

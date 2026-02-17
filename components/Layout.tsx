@@ -5,6 +5,7 @@ import { AppView } from '../types';
 import { getCurrentUser, logoutUser } from '../services/authService';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useVoice } from '../contexts/VoiceContext';
 import Background from './Background';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -18,50 +19,33 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }) => {
   const user = getCurrentUser();
   const { theme, toggleTheme } = useTheme();
   const { t } = useLanguage();
-  const [isListening, setIsListening] = useState(false);
+  const { isListening, startListening, stopListening, lastCommand } = useVoice(); // Use Context
 
-  // Voice Command Logic
-  const startListening = () => {
-    if (!('webkitSpeechRecognition' in window)) {
-      alert("Voice commands not supported in this browser. Try Chrome.");
-      return;
-    }
+  // Voice Command Logic - Effect to handle navigation
+  React.useEffect(() => {
+    if (!lastCommand) return;
 
-    const SpeechRecognition = (window as any).webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'en-US'; // Could map to current language
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
+    const command = lastCommand;
+    console.log("Processing Command:", command);
 
-    setIsListening(true);
-    if(navigator.vibrate) navigator.vibrate(10);
+    if (command.includes('dashboard') || command.includes('home')) setView(AppView.DASHBOARD);
+    else if (command.includes('disease') || command.includes('scan') || command.includes('detect')) setView(AppView.DISEASE_DETECTION);
+    else if (command.includes('advisory') || command.includes('chat') || command.includes('ask')) setView(AppView.ADVISORY);
+    else if (command.includes('market') || command.includes('price')) setView(AppView.MARKET);
+    else if (command.includes('farm') || command.includes('crops')) setView(AppView.FARM_MANAGEMENT);
+    else if (command.includes('history') || command.includes('records')) setView(AppView.HISTORY);
+    else if (command.includes('settings')) setView(AppView.SETTINGS);
+    else if (command.includes('weather')) setView(AppView.DASHBOARD);
 
-    recognition.start();
+    // Note: If command is not navigation, it stays in 'transcript' for AdvisoryChat to pick up
+    // We don't resetTranscript() here immediately so AdvisoryChat can read it if needed
 
-    recognition.onresult = (event: any) => {
-      const command = event.results[0][0].transcript.toLowerCase();
-      console.log("Voice Command:", command);
-      
-      if (command.includes('dashboard') || command.includes('home')) setView(AppView.DASHBOARD);
-      else if (command.includes('disease') || command.includes('scan') || command.includes('detect')) setView(AppView.DISEASE_DETECTION);
-      else if (command.includes('advisory') || command.includes('chat') || command.includes('ask')) setView(AppView.ADVISORY);
-      else if (command.includes('market') || command.includes('price')) setView(AppView.MARKET);
-      else if (command.includes('farm') || command.includes('crops')) setView(AppView.FARM_MANAGEMENT);
-      else if (command.includes('history') || command.includes('records')) setView(AppView.HISTORY);
-      else if (command.includes('settings')) setView(AppView.SETTINGS);
-      else if (command.includes('weather')) setView(AppView.DASHBOARD); 
-      
-      setIsListening(false);
-    };
-
-    recognition.onerror = () => setIsListening(false);
-    recognition.onend = () => setIsListening(false);
-  };
+  }, [lastCommand, setView]);
 
   const handleLogout = () => {
     if (navigator.vibrate) navigator.vibrate(20);
     logoutUser();
-    window.location.reload(); 
+    window.location.reload();
   };
 
   const navItems = [
@@ -87,19 +71,19 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }) => {
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center"
           >
-             <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl flex flex-col items-center gap-4 text-center border-2 border-agri-green-400">
-                <div className="relative">
-                  <div className="w-20 h-20 bg-agri-green-500 rounded-full animate-ping absolute inset-0 opacity-50"></div>
-                  <div className="w-20 h-20 bg-agri-green-600 rounded-full flex items-center justify-center relative z-10 text-white">
-                    <Mic className="w-8 h-8" />
-                  </div>
+            <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl flex flex-col items-center gap-4 text-center border-2 border-agri-green-400">
+              <div className="relative">
+                <div className="w-20 h-20 bg-agri-green-500 rounded-full animate-ping absolute inset-0 opacity-50"></div>
+                <div className="w-20 h-20 bg-agri-green-600 rounded-full flex items-center justify-center relative z-10 text-white">
+                  <Mic className="w-8 h-8" />
                 </div>
-                <h3 className="text-xl font-bold text-black dark:text-white">Listening...</h3>
-                <p className="text-black font-medium">Try saying "Go to Market" or "Scan Crop"</p>
-                <button onClick={() => setIsListening(false)} className="mt-4 p-2 bg-gray-200 dark:bg-gray-700 rounded-full">
-                  <X className="w-6 h-6 text-black dark:text-gray-300" />
-                </button>
-             </div>
+              </div>
+              <h3 className="text-xl font-bold text-black dark:text-white">Listening...</h3>
+              <p className="text-black font-medium">Try saying "Go to Market" or "Scan Crop"</p>
+              <button onClick={stopListening} className="mt-4 p-2 bg-gray-200 dark:bg-gray-700 rounded-full">
+                <X className="w-6 h-6 text-black dark:text-gray-300" />
+              </button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -107,7 +91,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }) => {
       {/* Desktop Sidebar - Green/Blue Gradient */}
       <aside className="hidden md:flex w-72 h-screen fixed z-20 flex-col border-r border-farm-blue-200 bg-gradient-to-b from-agri-green-100 to-farm-blue-100 backdrop-blur-xl shadow-xl transition-colors duration-300">
         <div className="p-8 border-b border-agri-green-200">
-          <motion.h1 
+          <motion.h1
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             className="text-3xl font-black text-black flex items-center gap-3"
@@ -118,7 +102,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }) => {
         </div>
 
         {/* User Mini Profile */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.1 }}
@@ -138,21 +122,20 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }) => {
               whileTap={{ scale: 0.98 }}
               key={item.id}
               onClick={() => {
-                if(navigator.vibrate) navigator.vibrate(5);
+                if (navigator.vibrate) navigator.vibrate(5);
                 setView(item.id);
               }}
-              className={`w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl font-bold transition-all duration-200 border-2 ${
-                currentView === item.id
-                  ? 'bg-black text-white border-black shadow-lg'
-                  : 'bg-white/40 border-transparent text-black hover:bg-white hover:border-agri-green-300'
-              }`}
+              className={`w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl font-bold transition-all duration-200 border-2 ${currentView === item.id
+                ? 'bg-black text-white border-black shadow-lg'
+                : 'bg-white/40 border-transparent text-black hover:bg-white hover:border-agri-green-300'
+                }`}
             >
               <item.icon className={`w-5 h-5 ${currentView === item.id ? 'text-agri-green-400' : 'text-black'}`} />
               {item.label}
             </motion.button>
           ))}
         </nav>
-        
+
         <div className="p-4 border-t border-agri-green-200 flex items-center justify-between gap-2">
           {/* Voice Button Desktop */}
           <button
@@ -163,14 +146,14 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }) => {
             <Mic className="w-5 h-5" />
           </button>
 
-          <button 
+          <button
             onClick={toggleTheme}
             className="p-3 rounded-xl bg-agri-green-200 text-black border-2 border-agri-green-300 hover:bg-agri-green-300 transition-colors"
           >
             {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
           </button>
-          
-          <button 
+
+          <button
             onClick={handleLogout}
             className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white text-black border-2 border-gray-200 hover:bg-gray-100 rounded-xl font-bold transition-colors"
           >
@@ -181,24 +164,24 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }) => {
 
       {/* Mobile Header */}
       <div className="md:hidden fixed top-0 left-0 right-0 bg-gradient-to-r from-agri-green-100 to-farm-blue-100 border-b border-agri-green-300 p-4 z-30 flex justify-between items-center shadow-sm">
-         <div className="flex items-center gap-2">
-            <span className="w-8 h-8 bg-black rounded-lg flex items-center justify-center text-white text-lg font-bold">K</span>
-            <span className="font-black text-lg text-black">{t('appTitle')}</span>
-         </div>
-         <div className="flex gap-2">
-           <button onClick={startListening} className="p-2 text-black bg-white/50 rounded-full">
-             <Mic className="w-5 h-5" />
-           </button>
-           <button onClick={() => setView(AppView.SETTINGS)} className="p-2 text-black bg-white/50 rounded-full">
-             <Settings className="w-5 h-5" />
-           </button>
-           <button onClick={toggleTheme} className="p-2 text-black bg-white/50 rounded-full">
-              {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-           </button>
-           <button onClick={handleLogout} className="p-2 text-black bg-white/50 rounded-full">
-              <LogOut className="w-5 h-5" />
-           </button>
-         </div>
+        <div className="flex items-center gap-2">
+          <span className="w-8 h-8 bg-black rounded-lg flex items-center justify-center text-white text-lg font-bold">K</span>
+          <span className="font-black text-lg text-black">{t('appTitle')}</span>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={startListening} className="p-2 text-black bg-white/50 rounded-full">
+            <Mic className="w-5 h-5" />
+          </button>
+          <button onClick={() => setView(AppView.SETTINGS)} className="p-2 text-black bg-white/50 rounded-full">
+            <Settings className="w-5 h-5" />
+          </button>
+          <button onClick={toggleTheme} className="p-2 text-black bg-white/50 rounded-full">
+            {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+          </button>
+          <button onClick={handleLogout} className="p-2 text-black bg-white/50 rounded-full">
+            <LogOut className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       {/* Main Content */}
@@ -223,12 +206,11 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }) => {
             whileTap={{ scale: 0.8 }}
             key={item.id}
             onClick={() => {
-              if(navigator.vibrate) navigator.vibrate(5);
+              if (navigator.vibrate) navigator.vibrate(5);
               setView(item.id);
             }}
-            className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${
-              currentView === item.id ? 'text-agri-green-400' : 'text-gray-400'
-            }`}
+            className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${currentView === item.id ? 'text-agri-green-400' : 'text-gray-400'
+              }`}
           >
             <item.icon className="w-6 h-6" />
           </motion.button>

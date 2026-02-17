@@ -4,16 +4,18 @@ import { getAdvisoryResponse } from '../services/geminiService';
 import { ChatMessage } from '../types';
 import { SUGGESTED_QUESTIONS, MOCK_WEATHER } from '../constants';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useVoice } from '../contexts/VoiceContext';
 
 const AdvisoryChat: React.FC = () => {
   const { language } = useLanguage();
+  const { isListening, lastCommand } = useVoice(); // Use Voice Context
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: '1',
       role: 'model',
-      text: language === 'hi' ? 'नमस्ते! मैं आपका कृषि-नेट AI सहायक हूँ। आज मैं आपकी कैसे मदद कर सकता हूँ?' : 
-            language === 'ur' ? 'آداب! میں آپ کا کرشی نیٹ AI اسسٹنٹ ہوں۔ آج میں آپ کی کیسے مدد کر سکتا ہوں؟' :
-            'Namaste! I am your Krishi-Net AI assistant. How can I help you with your farm today?',
+      text: language === 'hi' ? 'नमस्ते! मैं आपका कृषि- friend हूँ। पूछिए क्या मदद करूँ?' :
+        language === 'ur' ? 'آداب! میں آپ کا کرشی دوست ہوں۔ بتائیے کیا مدد کروں؟' :
+          'Namaste! I am your Krishi Friend 🌾. Ask me anything about your farm!',
       timestamp: new Date()
     }
   ]);
@@ -27,7 +29,19 @@ const AdvisoryChat: React.FC = () => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, isListening]);
+
+  // Handle Voice Input
+  useEffect(() => {
+    if (lastCommand) {
+      // If not a navigation command (handled in Layout), likely a chat message
+      if (!input && !loading) {
+        setInput(lastCommand);
+        // Optional: Auto-send if it sounds like a question
+        // handleSend(lastCommand); 
+      }
+    }
+  }, [lastCommand]);
 
   const handleSend = async (text: string = input) => {
     if (!text.trim()) return;
@@ -46,9 +60,9 @@ const AdvisoryChat: React.FC = () => {
     try {
       const history = messages.map(m => ({ role: m.role, text: m.text }));
       const context = `Weather today is ${MOCK_WEATHER.condition}, ${MOCK_WEATHER.temp}°C. Humidity ${MOCK_WEATHER.humidity}%. Forecast: Rain chance ${MOCK_WEATHER.forecast[1].rainChance}% tomorrow.`;
-      
+
       const response = await getAdvisoryResponse(text, history, context, language);
-      
+
       const botMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'model',
@@ -81,16 +95,14 @@ const AdvisoryChat: React.FC = () => {
             key={msg.id}
             className={`flex items-start gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
           >
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-              msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-green-600 text-white'
-            }`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-green-600 text-white'
+              }`}>
               {msg.role === 'user' ? <User className="w-5 h-5" /> : <Bot className="w-5 h-5" />}
             </div>
-            <div className={`max-w-[80%] rounded-2xl p-4 shadow-sm ${
-              msg.role === 'user' 
-                ? 'bg-blue-600 text-white rounded-tr-none' 
-                : 'bg-white text-gray-800 rounded-tl-none border border-gray-100'
-            }`}>
+            <div className={`max-w-[80%] rounded-2xl p-4 shadow-sm ${msg.role === 'user'
+              ? 'bg-blue-600 text-white rounded-tr-none'
+              : 'bg-white text-gray-800 rounded-tl-none border border-gray-100'
+              }`}>
               <p className="whitespace-pre-wrap leading-relaxed">{msg.text}</p>
               <span className={`text-xs mt-2 block ${msg.role === 'user' ? 'text-blue-100' : 'text-gray-400'}`}>
                 {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

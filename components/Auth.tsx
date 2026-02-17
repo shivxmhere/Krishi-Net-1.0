@@ -1,27 +1,29 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User } from '../types';
-import { loginUser, registerUser, sendOTP, verifyOTP, checkUserExists } from '../services/authService';
-import { MapPin, Phone, User as UserIcon, Mail, Loader2, ArrowLeft, Lock, Eye, EyeOff, Check, ShieldCheck } from 'lucide-react';
+import { loginUser, registerUser } from '../services/authService';
+import { MapPin, Phone, User as UserIcon, Mail, Loader2, Lock, Eye, EyeOff, Check, ShieldCheck, Sun, Moon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Background from './Background';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface AuthProps {
   onLogin: (user: User) => void;
 }
 
-type AuthView = 'LOGIN' | 'REGISTER' | 'OTP';
+type AuthView = 'LOGIN' | 'REGISTER';
 
 const Auth: React.FC<AuthProps> = ({ onLogin }) => {
+  const { theme, toggleTheme } = useTheme();
   const [view, setView] = useState<AuthView>('LOGIN');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
+
   // Login State
-  const [loginMethod, setLoginMethod] = useState<'PASSWORD' | 'OTP'>('PASSWORD');
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
-  
+  const [showPassword, setShowPassword] = useState(false);
+
   // Register State
   const [regData, setRegData] = useState({
     name: '',
@@ -32,11 +34,6 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
     password: '',
     agreeTerms: false
   });
-  const [showPassword, setShowPassword] = useState(false);
-
-  // OTP State
-  const [otpInput, setOtpInput] = useState('');
-  const [countdown, setCountdown] = useState(300);
 
   // Helper: Password Strength
   const getPasswordStrength = (pass: string) => {
@@ -53,8 +50,16 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
   const handleLocation = () => {
     if (navigator.geolocation) {
       setLoading(true);
+
+      // Set a safety timeout for geolocation
+      const geoTimeout = setTimeout(() => {
+        setLoading(false);
+        setError("Location request timed out. Please enter manually.");
+      }, 10000);
+
       navigator.geolocation.getCurrentPosition(
         async (position) => {
+          clearTimeout(geoTimeout);
           try {
             const { latitude, longitude } = position.coords;
             const response = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`);
@@ -67,7 +72,12 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
             setLoading(false);
           }
         },
-        () => setLoading(false)
+        () => {
+          clearTimeout(geoTimeout);
+          setLoading(false);
+          setError("Location permission denied.");
+        },
+        { timeout: 8000 }
       );
     }
   };
@@ -77,18 +87,10 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
     setError('');
     setLoading(true);
     try {
-      const exists = await checkUserExists(identifier);
-      if (!exists) throw new Error("Account not found. Please Sign Up.");
-
-      if (loginMethod === 'PASSWORD') {
-        const user = await loginUser(identifier, password);
-        onLogin(user);
-      } else {
-        await sendOTP(identifier);
-        setView('OTP');
-      }
+      const user = await loginUser(identifier, password);
+      onLogin(user);
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || "Failed to sign in. Check your connection.");
     } finally {
       setLoading(false);
     }
@@ -97,207 +99,263 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    // Validations
     if (!regData.name || !regData.phone || !regData.password) return setError("Required fields missing");
     if (regData.password.length < 8) return setError("Password must be at least 8 characters");
     if (!regData.agreeTerms) return setError("Please agree to Terms & Conditions");
 
     setLoading(true);
     try {
-      const exists = await checkUserExists(regData.phone);
-      if (exists) throw new Error("Phone already registered. Please Login.");
-      
-      await sendOTP(regData.phone);
-      setView('OTP');
+      const user = await registerUser(regData);
+      onLogin(user);
     } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyOTP = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const target = view === 'OTP' && regData.phone ? regData.phone : identifier;
-      const isValid = await verifyOTP(target, otpInput);
-      if (!isValid) throw new Error("Invalid or Expired OTP");
-
-      if (regData.phone) {
-        // Finishing Registration
-        const user = await registerUser(regData);
-        onLogin(user);
-      } else {
-        // Finishing Login
-        const user = await loginUser(identifier);
-        onLogin(user);
-      }
-    } catch (err: any) {
-      setError(err.message);
+      setError(err.message || "Registration failed. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 font-sans relative overflow-hidden bg-gray-50">
-      <Background mode="day" />
-      
-      <motion.div 
-        layout
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-white/95 backdrop-blur-xl w-full max-w-md rounded-[2.5rem] shadow-2xl border border-white/50 relative z-10 overflow-hidden"
+    <div className={`min-h-screen flex items-center justify-center p-4 font-sans relative overflow-hidden transition-colors duration-500 ${theme === 'dark' ? 'bg-black' : 'bg-gray-50'}`}>
+      <Background mode={theme === 'dark' ? 'night' : 'day'} />
+
+      {/* Theme Toggle - Premium Floating Button */}
+      <motion.button
+        initial={{ opacity: 0, scale: 0.5 }}
+        animate={{ opacity: 1, scale: 1 }}
+        whileHover={{ scale: 1.1, rotate: 10 }}
+        whileTap={{ scale: 0.9 }}
+        onClick={toggleTheme}
+        className="fixed top-6 right-6 z-50 p-4 rounded-full bg-white/20 dark:bg-black/20 backdrop-blur-xl border border-white/20 shadow-2xl text-yellow-500 dark:text-blue-400"
       >
-        {/* Header */}
-        <div className="p-8 pb-0 text-center">
-           <h1 className="text-2xl font-black text-gray-900 tracking-tight">Krishi-Net</h1>
-           <p className="text-green-600 font-bold text-xs uppercase tracking-widest mt-1">Smart Agriculture</p>
-        </div>
+        {theme === 'dark' ? <Sun className="w-6 h-6" /> : <Moon className="w-6 h-6" />}
+      </motion.button>
 
-        <div className="p-8">
-          {error && (
-            <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} className="bg-red-50 text-red-600 p-3 rounded-xl text-sm font-bold mb-6 flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4" /> {error}
+      <motion.div
+        layout
+        initial={{ opacity: 0, y: 30, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        className="relative w-full max-w-md z-10"
+      >
+        {/* Decorative Orbs */}
+        <div className="absolute -top-20 -left-20 w-40 h-40 bg-green-500/20 blur-3xl animate-pulse" />
+        <div className="absolute -bottom-20 -right-20 w-40 h-40 bg-blue-500/20 blur-3xl animate-pulse" />
+
+        <div className={`backdrop-blur-[40px] w-full rounded-[3rem] shadow-[0_32px_120px_rgba(0,0,0,0.3)] border-2 transition-all duration-500 overflow-hidden ${theme === 'dark'
+            ? 'bg-black/60 border-white/10 shadow-black'
+            : 'bg-white/80 border-white/50 shadow-green-100'
+          }`}>
+
+          {/* Header */}
+          <div className="p-10 pb-4 text-center">
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              delay={0.2}
+              className="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-700 rounded-3xl mx-auto flex items-center justify-center shadow-xl shadow-green-500/20 mb-6"
+            >
+              <ShieldCheck className="w-8 h-8 text-white" />
             </motion.div>
-          )}
+            <h1 className={`text-4xl font-black tracking-tight mb-1 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Krishi-Net</h1>
+            <p className="text-green-500 font-black text-xs uppercase tracking-[0.3em]">Smart AI Agriculture</p>
+          </div>
 
-          <AnimatePresence mode="wait">
-            {view === 'LOGIN' && (
-              <motion.form 
-                key="login"
-                initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 20, opacity: 0 }}
-                onSubmit={handleLoginSubmit} 
-                className="space-y-5"
-              >
-                {/* Login Tabs */}
-                <div className="flex bg-gray-100 p-1 rounded-xl mb-4">
-                  <button type="button" onClick={() => setLoginMethod('PASSWORD')} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${loginMethod === 'PASSWORD' ? 'bg-white shadow text-black' : 'text-gray-400'}`}>Password</button>
-                  <button type="button" onClick={() => setLoginMethod('OTP')} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${loginMethod === 'OTP' ? 'bg-white shadow text-black' : 'text-gray-400'}`}>OTP</button>
-                </div>
+          <div className="p-10 pt-4">
+            <AnimatePresence mode="wait">
+              {error && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0, y: -10 }}
+                  animate={{ height: 'auto', opacity: 1, y: 0 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="bg-red-500/10 border border-red-500/20 text-red-500 p-4 rounded-2xl text-sm font-bold mb-8 flex items-center gap-3 backdrop-blur-sm"
+                >
+                  <AlertCircle className="w-5 h-5 shrink-0" /> {error}
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-                <div className="relative">
-                  <UserIcon className="absolute left-4 top-4 w-5 h-5 text-gray-400" />
-                  <input type="text" placeholder="Phone or Email" value={identifier} onChange={e => setIdentifier(e.target.value)} className="w-full pl-12 pr-4 py-4 bg-gray-50 rounded-xl font-bold border-2 border-transparent focus:bg-white focus:border-green-500 outline-none transition-all" />
-                </div>
+            <AnimatePresence mode="wait">
+              {view === 'LOGIN' && (
+                <motion.form
+                  key="login"
+                  initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 20, opacity: 0 }}
+                  onSubmit={handleLoginSubmit}
+                  className="space-y-6"
+                >
+                  <div className="group relative">
+                    <UserIcon className="absolute left-5 top-5 w-5 h-5 text-gray-400 group-focus-within:text-green-500 transition-colors" />
+                    <input
+                      type="text"
+                      placeholder="Phone or Email"
+                      value={identifier}
+                      onChange={e => setIdentifier(e.target.value)}
+                      className={`w-full pl-14 pr-5 py-5 rounded-2xl font-bold border-2 outline-none transition-all ${theme === 'dark'
+                          ? 'bg-white/5 border-transparent focus:bg-white/10 focus:border-green-500 text-white placeholder-gray-500'
+                          : 'bg-gray-50 border-transparent focus:bg-white focus:border-green-500 text-gray-900 placeholder-gray-400'
+                        }`}
+                    />
+                  </div>
 
-                {loginMethod === 'PASSWORD' && (
-                  <div className="relative">
-                    <Lock className="absolute left-4 top-4 w-5 h-5 text-gray-400" />
-                    <input type={showPassword ? "text" : "password"} placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} className="w-full pl-12 pr-12 py-4 bg-gray-50 rounded-xl font-bold border-2 border-transparent focus:bg-white focus:border-green-500 outline-none transition-all" />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-4 text-gray-400 hover:text-black">
+                  <div className="group relative">
+                    <Lock className="absolute left-5 top-5 w-5 h-5 text-gray-400 group-focus-within:text-green-500 transition-colors" />
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Password"
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      className={`w-full pl-14 pr-14 py-5 rounded-2xl font-bold border-2 outline-none transition-all ${theme === 'dark'
+                          ? 'bg-white/5 border-transparent focus:bg-white/10 focus:border-green-500 text-white placeholder-gray-500'
+                          : 'bg-gray-50 border-transparent focus:bg-white focus:border-green-500 text-gray-900 placeholder-gray-400'
+                        }`}
+                    />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-5 top-5 text-gray-400 hover:text-green-500 transition-colors">
                       {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
                   </div>
-                )}
 
-                <button type="submit" disabled={loading} className="w-full py-4 bg-green-600 text-white rounded-xl font-black shadow-lg shadow-green-200 hover:bg-green-700 active:scale-95 transition-all flex justify-center">
-                   {loading ? <Loader2 className="animate-spin" /> : (loginMethod === 'PASSWORD' ? 'Sign In' : 'Send OTP')}
-                </button>
-                
-                <p className="text-center text-gray-500 text-sm font-medium">
-                  New here? <button type="button" onClick={() => setView('REGISTER')} className="text-green-600 font-bold hover:underline">Create Account</button>
-                </p>
-              </motion.form>
-            )}
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-[1.5rem] font-black shadow-xl shadow-green-500/20 hover:shadow-green-500/40 active:scale-[0.98] transition-all flex justify-center items-center gap-3 overflow-hidden group"
+                  >
+                    <AnimatePresence mode="wait">
+                      {loading ? (
+                        <motion.div key="loader" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                          <Loader2 className="animate-spin w-6 h-6" />
+                        </motion.div>
+                      ) : (
+                        <motion.span key="text" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
+                          SIGN IN
+                        </motion.span>
+                      )}
+                    </AnimatePresence>
+                  </button>
 
-            {view === 'REGISTER' && (
-              <motion.form 
-                key="register"
-                initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -20, opacity: 0 }}
-                onSubmit={handleRegisterSubmit} 
-                className="space-y-4"
-              >
-                <div className="grid grid-cols-2 gap-3">
-                   <div className="relative">
-                     <UserIcon className="absolute left-3 top-3.5 w-4 h-4 text-gray-400" />
-                     <input type="text" placeholder="Name" value={regData.name} onChange={e => setRegData({...regData, name: e.target.value})} className="w-full pl-9 pr-3 py-3 bg-gray-50 rounded-xl text-sm font-bold outline-none border border-transparent focus:border-green-500" />
-                   </div>
-                   <div className="relative">
-                     <Phone className="absolute left-3 top-3.5 w-4 h-4 text-gray-400" />
-                     <input type="tel" placeholder="Phone" value={regData.phone} onChange={e => setRegData({...regData, phone: e.target.value})} className="w-full pl-9 pr-3 py-3 bg-gray-50 rounded-xl text-sm font-bold outline-none border border-transparent focus:border-green-500" />
-                   </div>
-                </div>
+                  <p className={`text-center text-sm font-bold ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                    New here? <button type="button" onClick={() => setView('REGISTER')} className="text-green-500 font-black hover:underline underline-offset-4">Create Account</button>
+                  </p>
+                </motion.form>
+              )}
 
-                <div className="relative">
-                  <Mail className="absolute left-4 top-4 w-5 h-5 text-gray-400" />
-                  <input type="email" placeholder="Email (Optional)" value={regData.email} onChange={e => setRegData({...regData, email: e.target.value})} className="w-full pl-12 pr-4 py-4 bg-gray-50 rounded-xl font-bold border-2 border-transparent focus:bg-white focus:border-green-500 outline-none transition-all" />
-                </div>
+              {view === 'REGISTER' && (
+                <motion.form
+                  key="register"
+                  initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -20, opacity: 0 }}
+                  onSubmit={handleRegisterSubmit}
+                  className="space-y-4"
+                >
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="group relative">
+                      <UserIcon className="absolute left-4 top-4 w-4 h-4 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="Name"
+                        value={regData.name}
+                        onChange={e => setRegData({ ...regData, name: e.target.value })}
+                        className={`w-full pl-11 pr-4 py-4 rounded-xl text-sm font-bold outline-none border transition-all ${theme === 'dark' ? 'bg-white/5 border-transparent focus:border-green-500 text-white' : 'bg-gray-50 border-transparent focus:border-green-500'
+                          }`}
+                      />
+                    </div>
+                    <div className="group relative">
+                      <Phone className="absolute left-4 top-4 w-4 h-4 text-gray-400" />
+                      <input
+                        type="tel"
+                        placeholder="Phone"
+                        value={regData.phone}
+                        onChange={e => setRegData({ ...regData, phone: e.target.value })}
+                        className={`w-full pl-11 pr-4 py-4 rounded-xl text-sm font-bold outline-none border transition-all ${theme === 'dark' ? 'bg-white/5 border-transparent focus:border-green-500 text-white' : 'bg-gray-50 border-transparent focus:border-green-500'
+                          }`}
+                      />
+                    </div>
+                  </div>
 
-                <div>
-                   <div className="relative">
-                      <Lock className="absolute left-4 top-4 w-5 h-5 text-gray-400" />
-                      <input type={showPassword ? "text" : "password"} placeholder="Create Password" value={regData.password} onChange={e => setRegData({...regData, password: e.target.value})} className="w-full pl-12 pr-12 py-4 bg-gray-50 rounded-xl font-bold border-2 border-transparent focus:bg-white focus:border-green-500 outline-none transition-all" />
-                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-4 text-gray-400 hover:text-black">
+                  <div className="group relative">
+                    <Mail className="absolute left-5 top-4.5 w-5 h-5 text-gray-400" />
+                    <input
+                      type="email"
+                      placeholder="Email (Optional)"
+                      value={regData.email}
+                      onChange={e => setRegData({ ...regData, email: e.target.value })}
+                      className={`w-full pl-14 pr-5 py-4 rounded-xl font-bold border transition-all ${theme === 'dark' ? 'bg-white/5 border-transparent focus:border-green-500 text-white' : 'bg-gray-50 border-transparent focus:border-green-500'
+                        }`}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="group relative">
+                      <Lock className="absolute left-5 top-4.5 w-5 h-5 text-gray-400" />
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Create Password"
+                        value={regData.password}
+                        onChange={e => setRegData({ ...regData, password: e.target.value })}
+                        className={`w-full pl-14 pr-14 py-4 rounded-xl font-bold border transition-all ${theme === 'dark' ? 'bg-white/5 border-transparent focus:border-green-500 text-white' : 'bg-gray-50 border-transparent focus:border-green-500'
+                          }`}
+                      />
+                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-5 top-4.5 text-gray-400">
                         {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                       </button>
-                   </div>
-                   {/* Password Strength */}
-                   <div className="flex gap-1 mt-2 h-1">
+                    </div>
+                    {/* Password Strength Indicator */}
+                    <div className="flex gap-2 h-1.5 px-1">
                       {[1, 2, 3, 4].map(i => (
-                        <div key={i} className={`flex-1 rounded-full transition-colors ${i <= strength ? (strength < 2 ? 'bg-red-500' : strength < 4 ? 'bg-yellow-500' : 'bg-green-500') : 'bg-gray-200'}`} />
+                        <div key={i} className={`flex-1 rounded-full transition-all duration-500 ${i <= strength ? (strength < 2 ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]' : strength < 4 ? 'bg-yellow-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]' : 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]') : 'bg-gray-200 dark:bg-gray-800'}`} />
                       ))}
-                   </div>
-                   <p className="text-xs text-gray-400 mt-1 text-right">{strength < 2 ? 'Weak' : strength < 4 ? 'Medium' : 'Strong'}</p>
-                </div>
-
-                <div className="flex gap-2">
-                   <div className="relative flex-1">
-                     <MapPin className="absolute left-4 top-4 w-5 h-5 text-gray-400" />
-                     <input type="text" placeholder="Location" value={regData.location} onChange={e => setRegData({...regData, location: e.target.value})} className="w-full pl-12 pr-4 py-4 bg-gray-50 rounded-xl font-bold border-2 border-transparent focus:bg-white focus:border-green-500 outline-none transition-all" />
-                   </div>
-                   <button type="button" onClick={handleLocation} className="p-4 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-colors">
-                     {loading ? <Loader2 className="animate-spin" /> : <MapPin />}
-                   </button>
-                </div>
-
-                <label className="flex items-center gap-3 p-2 cursor-pointer">
-                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${regData.agreeTerms ? 'bg-green-600 border-green-600' : 'border-gray-300'}`}>
-                    {regData.agreeTerms && <Check className="w-3 h-3 text-white" />}
+                    </div>
                   </div>
-                  <input type="checkbox" className="hidden" checked={regData.agreeTerms} onChange={e => setRegData({...regData, agreeTerms: e.target.checked})} />
-                  <span className="text-sm font-medium text-gray-500">I agree to <span className="text-green-600">Terms & Conditions</span></span>
-                </label>
 
-                <button type="submit" disabled={loading} className="w-full py-4 bg-green-600 text-white rounded-xl font-black shadow-lg shadow-green-200 hover:bg-green-700 active:scale-95 transition-all flex justify-center">
-                   {loading ? <Loader2 className="animate-spin" /> : 'Create Account'}
-                </button>
+                  <div className="flex gap-3">
+                    <div className="group relative flex-1">
+                      <MapPin className="absolute left-5 top-4.5 w-5 h-5 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="Location"
+                        value={regData.location}
+                        onChange={e => setRegData({ ...regData, location: e.target.value })}
+                        className={`w-full pl-14 pr-5 py-4 rounded-xl font-bold border transition-all ${theme === 'dark' ? 'bg-white/5 border-transparent focus:border-green-500 text-white' : 'bg-gray-50 border-transparent focus:border-green-500'
+                          }`}
+                      />
+                    </div>
+                    <button type="button" onClick={handleLocation} className="p-4 bg-green-500/10 text-green-500 rounded-xl hover:bg-green-500/20 transition-all active:scale-95 shadow-lg shadow-green-500/5">
+                      {loading ? <Loader2 className="animate-spin" /> : <MapPin />}
+                    </button>
+                  </div>
 
-                <p className="text-center text-gray-500 text-sm font-medium">
-                  Already have an account? <button type="button" onClick={() => setView('LOGIN')} className="text-green-600 font-bold hover:underline">Sign In</button>
-                </p>
-              </motion.form>
-            )}
+                  <label className="flex items-center gap-4 p-2 cursor-pointer group">
+                    <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${regData.agreeTerms ? 'bg-green-500 border-green-500 shadow-lg shadow-green-500/30' : 'border-gray-300 dark:border-gray-700'}`}>
+                      {regData.agreeTerms && <Check className="w-4 h-4 text-white" />}
+                    </div>
+                    <input type="checkbox" className="hidden" checked={regData.agreeTerms} onChange={e => setRegData({ ...regData, agreeTerms: e.target.checked })} />
+                    <span className={`text-sm font-bold transition-colors ${theme === 'dark' ? 'text-gray-400 group-hover:text-white' : 'text-gray-500'}`}>Agree to <span className="text-green-500">Terms & Conditions</span></span>
+                  </label>
 
-            {view === 'OTP' && (
-              <motion.form 
-                key="otp"
-                initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -20, opacity: 0 }}
-                onSubmit={handleVerifyOTP} 
-                className="space-y-6 text-center"
-              >
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900">Verify it's you</h3>
-                  <p className="text-gray-500 text-sm mt-1">We sent a code to <span className="font-bold text-black">{regData.phone || identifier}</span></p>
-                </div>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-[1.5rem] font-black shadow-xl shadow-green-500/20 hover:shadow-green-500/40 active:scale-[0.98] transition-all flex justify-center items-center"
+                  >
+                    {loading ? <Loader2 className="animate-spin w-6 h-6" /> : 'CREATE ACCOUNT'}
+                  </button>
 
-                <input type="text" autoFocus maxLength={6} placeholder="123456" value={otpInput} onChange={e => setOtpInput(e.target.value)} className="w-full text-center text-4xl font-mono font-bold tracking-[0.5em] py-4 bg-transparent border-b-4 border-gray-200 focus:border-green-600 outline-none transition-colors" />
-
-                <p className="text-sm text-gray-400">Code expires in {Math.floor(countdown / 60)}:{(countdown % 60).toString().padStart(2, '0')}</p>
-
-                <div className="flex gap-3">
-                   <button type="button" onClick={() => setView(regData.phone ? 'REGISTER' : 'LOGIN')} className="flex-1 py-4 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200">Back</button>
-                   <button type="submit" disabled={loading} className="flex-[2] py-4 bg-green-600 text-white rounded-xl font-black shadow-lg shadow-green-200 hover:bg-green-700 active:scale-95 transition-all flex justify-center">
-                     {loading ? <Loader2 className="animate-spin" /> : 'Verify'}
-                   </button>
-                </div>
-              </motion.form>
-            )}
-          </AnimatePresence>
+                  <p className={`text-center text-sm font-bold ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                    Already have an account? <button type="button" onClick={() => setView('LOGIN')} className="text-green-500 font-black hover:underline underline-offset-4">Sign In</button>
+                  </p>
+                </motion.form>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </motion.div>
     </div>
   );
 };
+
+// Simple Alert Component Replacement
+const AlertCircle = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+  </svg>
+);
 
 export default Auth;

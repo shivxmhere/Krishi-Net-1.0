@@ -1,6 +1,5 @@
 
 from sqlalchemy import Column, String, DateTime, Boolean, Integer
-from sqlalchemy.dialects.postgresql import UUID
 import uuid
 from datetime import datetime, timedelta
 from app.database import Base
@@ -8,8 +7,8 @@ from app.database import Base
 class OTP(Base):
     __tablename__ = "otps"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), nullable=True)  # Null for sign up OTPs
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, nullable=True)  # Null for sign up OTPs
     
     # OTP details
     code = Column(String(6), nullable=False)

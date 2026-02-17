@@ -27,27 +27,25 @@ export const MOCK_MARKET_PRICES: MarketPrice[] = [
 export const getHistoricalData = (basePrice: number, period: '1W' | '1M' | '3M' | '6M') => {
   const daysMap = { '1W': 7, '1M': 30, '3M': 90, '6M': 180 };
   const days = daysMap[period];
-  
+
   let price = basePrice;
   const history = [];
-  
-  // Generate backwards from today to ensure the last point matches current price
+
   for (let i = 0; i < days; i++) {
-     const date = new Date();
-     date.setDate(date.getDate() - i);
-     
-     history.unshift({
-       date: date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
-       price: Math.round(price)
-     });
-     
-     // Random walk backwards to simulate history
-     // More volatility for longer periods to look realistic
-     const volatility = 0.02; // 2% daily change
-     const change = (Math.random() - 0.5) * volatility;
-     price = price * (1 - change);
+    const date = new Date();
+    date.setDate(date.getDate() - i);
+
+    // Random walk backwards
+    const volatility = 0.02;
+    const change = (Math.random() - 0.5) * volatility;
+    price = price * (1 - change);
+
+    history.unshift({
+      date: date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+      price: Math.round(price)
+    });
   }
-  
+
   return history;
 };
 

@@ -22,3 +22,30 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment variables (NEVER commit these)
+.env
+.env.local
+.env.production
+backend/.env
+models.txt
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+venv/
+.venv/
+*.egg-info/
+
+# Database
+*.db
+*.sqlite3
+
+# ML Models (too large for git)
+backend/app/saved_models/
+*.h5
+*.pb
+
+# Backend data
+backend/data/

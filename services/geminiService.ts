@@ -1,124 +1,82 @@
-import { GoogleGenAI, Type } from "@google/genai";
 import { DiseaseAnalysis, WeatherData, MarketPrice, Crop, NearbyMarket } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// API Configuration — all AI calls now go through the backend (Groq-powered)
+const getEnvVar = (name: string) => (import.meta as any).env[name] || "";
+const API_URL = getEnvVar('VITE_API_URL') || 'http://localhost:8000';
 
-const MODEL_NAME = 'gemini-3-flash-preview';
+// Generic AI text generation via backend
+const callAI = async (prompt: string, jsonMode: boolean = false): Promise<string> => {
+  const response = await fetch(`${API_URL}/api/v1/ai/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, json_mode: jsonMode, max_tokens: 1024 }),
+  });
+  if (!response.ok) throw new Error(`AI error: ${response.statusText}`);
+  const data = await response.json();
+  return data.response;
+};
 
-export const analyzePlantImage = async (base64Image: string, cropContext?: string, locale: string = 'en'): Promise<DiseaseAnalysis> => {
+export const analyzePlantImage = async (imageFile: File | Blob, cropContext?: string, locale: string = 'en'): Promise<DiseaseAnalysis> => {
+  const formData = new FormData();
+  formData.append('file', imageFile, 'image.jpg');
+  formData.append('crop', cropContext || 'Other');
+
+  // 60-second timeout to prevent infinite hang
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60000);
+
   try {
-    const contextPrompt = cropContext && cropContext !== 'Other' 
-      ? `The crop is identified by the farmer as: ${cropContext}. Focus analysis on diseases common to ${cropContext} in India.` 
-      : `Identify the crop type from the image first.`;
-
-    const prompt = `
-      ACT AS A PRODUCTION-GRADE AGRICULTURAL AI FOR INDIA (KRISHI-NET).
-      
-      TASK: Analyze this plant image for disease, pests, or nutrient deficiency.
-      CONTEXT: ${contextPrompt}
-      LOCATION CONTEXT: India (Assume Indian agricultural conditions).
-      
-      REQUIREMENTS:
-      1. Detect the specific disease or issue.
-      2. Estimate Severity (Low/Medium/High) based on lesion spread and leaf damage.
-      3. Provide a Confidence Score (0.0 to 1.0). If image is unclear, confidence should be low.
-      4. Suggest treatments relevant to Indian farmers (available fungicides/pesticides).
-      5. Provide organic/home remedies common in Indian villages.
-      
-      OUTPUT: Return strictly valid JSON matching the schema.
-      LANGUAGE: The content inside the JSON (names, treatments) should be in ${locale === 'hi' ? 'Hindi' : locale === 'ur' ? 'Urdu' : 'English'}.
-    `;
-
-    const response = await ai.models.generateContent({
-      model: MODEL_NAME,
-      contents: {
-        parts: [
-          {
-            inlineData: {
-              mimeType: 'image/jpeg',
-              data: base64Image
-            }
-          },
-          { text: prompt }
-        ]
-      },
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            diseaseName: { type: Type.STRING },
-            confidence: { type: Type.NUMBER, description: "Score between 0.0 and 1.0" },
-            severity: { type: Type.STRING, enum: ["Low", "Medium", "High", "Healthy", "Unknown"] },
-            description: { type: Type.STRING, description: "Short description of visual symptoms" },
-            treatment: { 
-              type: Type.ARRAY, 
-              items: { type: Type.STRING } 
-            },
-            organicAlternatives: { 
-              type: Type.ARRAY, 
-              items: { type: Type.STRING } 
-            },
-            prevention: { 
-              type: Type.ARRAY, 
-              items: { type: Type.STRING } 
-            },
-            nextSteps: { type: Type.STRING, description: "Immediate action for the farmer" }
-          },
-          required: ["diseaseName", "confidence", "severity", "description", "treatment", "organicAlternatives", "prevention", "nextSteps"]
-        }
-      }
+    const response = await fetch(`${API_URL}/api/v1/predict/`, {
+      method: 'POST',
+      body: formData,
+      signal: controller.signal,
     });
 
-    if (response.text) {
-      return JSON.parse(response.text) as DiseaseAnalysis;
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || `Analysis failed: ${response.statusText}`);
     }
-    throw new Error("No response text");
-  } catch (error) {
-    // console.error("Error analyzing plant:", error);
-    throw error;
+    return await response.json();
+  } catch (err: any) {
+    if (err.name === 'AbortError') {
+      throw new Error('Analysis timed out. Please try again with a clearer image.');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
   }
 };
 
 export const getAdvisoryResponse = async (
-  message: string, 
+  message: string,
   history: { role: 'user' | 'model', text: string }[],
   context?: string,
   language: string = 'en'
 ): Promise<string> => {
-  try {
-    const chat = ai.chats.create({
-      model: MODEL_NAME,
-      history: history.map(h => ({
-        role: h.role,
-        parts: [{ text: h.text }]
-      })),
-      config: {
-        systemInstruction: `You are Krishi-Net's AI Agricultural Advisor. 
-        Your goal is to help farmers with practical, scientific, and sustainable farming advice.
-        Keep answers concise, actionable, and easy to understand.
-        ALWAYS Reply in the following language code: ${language}.
-        If the language is 'hi' (Hindi) or 'ur' (Urdu), use the respective script.
-        If context is provided about local weather or crops, use it.
-        ${context ? `Current Context: ${context}` : ''}`
-      }
-    });
+  const response = await fetch(`${API_URL}/api/v1/chat/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, history, context, language }),
+  });
 
-    const result = await chat.sendMessage({ message });
-    return result.text || "I am currently unable to provide advice. Please try again later.";
-  } catch (error) {
-    // Silently fail to fallback
-    return "Sorry, I encountered an error connecting to the agricultural database.";
-  }
+  if (!response.ok) throw new Error(`Chat API error: ${response.statusText}`);
+  const data = await response.json();
+  return data.response;
 };
+
+interface LocationData {
+  marketPrices: MarketPrice[];
+  activeCrops: { name: string; status: string }[];
+  nearbyMarkets: NearbyMarket[];
+  weather: WeatherData;
+}
 
 export const getWeatherInsight = async (weatherSummary: string): Promise<string> => {
   try {
-    const response = await ai.models.generateContent({
-      model: MODEL_NAME,
-      contents: `Given this weather forecast: ${weatherSummary}. Provide a 1-sentence farming tip for farmers in this region.`,
-    });
-    return response.text || "Monitor field moisture levels.";
+    const result = await callAI(
+      `Given this weather forecast: ${weatherSummary}. Provide a 1-sentence farming tip for farmers in this region.`
+    );
+    return result || "Monitor field moisture levels.";
   } catch (e) {
     return "Check local weather advisories.";
   }
@@ -136,136 +94,39 @@ export const getSellOrHoldAdvisory = async (
       Crop: ${crop}
       Current Price: ₹${price}/Quintal
       Market Trend: ${trend}
-      
       Should I SELL now or HOLD for better prices? 
       Provide a JSON response with "recommendation" (SELL or HOLD) and "reason" (max 20 words).
     `;
 
-    const response = await ai.models.generateContent({
-      model: MODEL_NAME,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            recommendation: { type: Type.STRING, enum: ['SELL', 'HOLD'] },
-            reason: { type: Type.STRING }
-          },
-          required: ['recommendation', 'reason']
-        }
-      }
-    });
-    
-    if (response.text) {
-      return JSON.parse(response.text);
-    }
-    return { recommendation: 'HOLD', reason: 'Market analysis unavailable, proceed with caution.' };
+    const result = await callAI(prompt, true);
+    return result ? JSON.parse(result) : { recommendation: 'HOLD', reason: 'Market data stable.' };
   } catch (error) {
-    return { recommendation: 'HOLD', reason: 'Could not fetch AI analysis.' };
+    return { recommendation: 'HOLD', reason: 'Analyzing market pulse...' };
   }
 };
 
-interface LocationData {
-  marketPrices: MarketPrice[];
-  activeCrops: { name: string; status: string }[];
-  nearbyMarkets: NearbyMarket[];
-  weather: WeatherData;
-}
-
-// New function to generate localized data
 export const getLocationBasedData = async (location: string): Promise<LocationData | null> => {
   try {
     const prompt = `
       Act as a real-time agricultural data engine for India.
-      Location: ${location}.
-      Date: ${new Date().toLocaleDateString()}.
-      
-      Task:
-      1. Identify the 5 most relevant crops actually grown in ${location}.
-      2. Estimate CURRENT market prices in the nearest real Mandis (Markets) for this location.
-      3. Identify 3 ACTUAL nearby towns/Mandis relative to ${location} with their approximate distance.
-      4. Suggest 2 crops farmers are likely growing right now in this season in this district.
-      5. Generate a weather forecast summary for this location.
-      
-      Output strictly valid JSON.
+      Location: ${location}. Date: ${new Date().toLocaleDateString()}.
+      1. 5 relevant crops in ${location}.
+      2. Nearest Mandi prices.
+      3. 3 Nearby Mandis with distance.
+      4. Current season crops for this district.
+      5. Weather forecast.
+      Output strictly valid JSON with this structure:
+      {
+        "marketPrices": [{"crop": "string", "mandi": "string", "price": number, "change": number, "trend": "up/down/stable"}],
+        "activeCrops": [{"name": "string", "status": "string"}],
+        "nearbyMarkets": [{"name": "string", "distance": "string", "priceDiff": number}],
+        "weather": {"temp": number, "condition": "string", "humidity": number, "windSpeed": number, "forecast": [{"day": "string", "temp": number, "rainChance": number}]}
+      }
     `;
 
-    const response = await ai.models.generateContent({
-      model: MODEL_NAME,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            marketPrices: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  crop: { type: Type.STRING },
-                  mandi: { type: Type.STRING },
-                  price: { type: Type.NUMBER },
-                  change: { type: Type.NUMBER },
-                  trend: { type: Type.STRING, enum: ['up', 'down', 'stable'] }
-                }
-              }
-            },
-            activeCrops: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  name: { type: Type.STRING },
-                  status: { type: Type.STRING }
-                }
-              }
-            },
-            nearbyMarkets: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  name: { type: Type.STRING },
-                  distance: { type: Type.STRING },
-                  priceDiff: { type: Type.NUMBER, description: "Difference from avg price" }
-                }
-              }
-            },
-            weather: {
-              type: Type.OBJECT,
-              properties: {
-                temp: { type: Type.NUMBER },
-                condition: { type: Type.STRING },
-                humidity: { type: Type.NUMBER },
-                windSpeed: { type: Type.NUMBER },
-                forecast: {
-                  type: Type.ARRAY,
-                  items: {
-                    type: Type.OBJECT,
-                    properties: {
-                      day: { type: Type.STRING },
-                      temp: { type: Type.NUMBER },
-                      rainChance: { type: Type.NUMBER }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          required: ["marketPrices", "activeCrops", "nearbyMarkets", "weather"]
-        }
-      }
-    });
-
-    if (response.text) {
-      return JSON.parse(response.text);
-    }
-    throw new Error("No data generated");
+    const result = await callAI(prompt, true);
+    return result ? JSON.parse(result) : null;
   } catch (error) {
-    // Removing the error log to prevent console noise
-    // console.error("Location data error:", error); 
-    return null; // The UI will handle fallback
+    return null;
   }
 };
