@@ -16,7 +16,7 @@ export default defineConfig(({ mode }) => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['icon.svg'],
+        includeAssets: ['icon.svg', 'logo.png'],
         manifest: {
           name: 'Krishi-Net: Smart Agriculture',
           short_name: 'Krishi-Net',
@@ -26,10 +26,16 @@ export default defineConfig(({ mode }) => {
           display: 'standalone',
           icons: [
             {
+              src: 'logo.png',
+              sizes: '512x512',
+              type: 'image/png',
+              purpose: 'any maskable'
+            },
+            {
               src: 'icon.svg',
               sizes: '512x512',
               type: 'image/svg+xml',
-              purpose: 'any maskable'
+              purpose: 'any'
             }
           ]
         }

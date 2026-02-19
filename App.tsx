@@ -10,7 +10,8 @@ import History from './components/History';
 import Settings from './components/Settings';
 import Auth from './components/Auth';
 import Onboarding from './components/Onboarding';
-import Welcome from './components/Welcome'; // Import Welcome
+import Welcome from './components/Welcome';
+import SplashScreen from './components/SplashScreen';
 import { AppView, User } from './types';
 import { getCurrentUser, completeOnboarding } from './services/authService';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -22,6 +23,7 @@ function AppContent() {
   const [currentView, setView] = useState<AppView>(AppView.DASHBOARD);
   const [loading, setLoading] = useState(true);
   const [showAppTour, setShowAppTour] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
     console.log("Krishi-Net: App Component Rendered");
@@ -83,6 +85,11 @@ function AppContent() {
         return <Dashboard setView={setView} />;
     }
   };
+
+  // 0. Show Splash Screen on every app open
+  if (showSplash) {
+    return <SplashScreen onComplete={() => setShowSplash(false)} />;
+  }
 
   if (loading) {
     return (

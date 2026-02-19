@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Camera, X, AlertCircle, CheckCircle, ChevronRight, Droplets, ShieldCheck, Sprout, ScanLine, Loader2, Leaf } from 'lucide-react';
+import { Camera, X, AlertCircle, CheckCircle, ChevronRight, Droplets, ShieldCheck, Sprout, ScanLine, Loader2, Leaf, ImagePlus } from 'lucide-react';
 import { analyzePlantImage } from '../services/geminiService';
 import { saveScan } from '../services/historyService';
 import { getCurrentUser } from '../services/authService';
@@ -19,6 +19,7 @@ const DiseaseDetector: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedCrop, setSelectedCrop] = useState<string>('Other');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -126,18 +127,36 @@ const DiseaseDetector: React.FC = () => {
           </GlassCard>
 
           {/* Upload Area */}
-          <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }} onClick={() => fileInputRef.current?.click()}>
-            <GlassCard className="group cursor-pointer p-12 text-center border-2 border-dashed border-glass-border hover:border-sprout-green relative overflow-hidden transition-colors">
-              <div className="absolute inset-0 bg-gradient-to-br from-sprout-green/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-              <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleFileUpload} />
+          {/* Camera & Gallery Buttons */}
+          <div className="grid grid-cols-2 gap-4">
+            {/* Take Photo — opens device camera */}
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }} onClick={() => cameraInputRef.current?.click()}>
+              <GlassCard className="group cursor-pointer p-8 text-center border-2 border-dashed border-glass-border hover:border-sprout-green relative overflow-hidden transition-colors">
+                <div className="absolute inset-0 bg-gradient-to-br from-sprout-green/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <input type="file" accept="image/*" capture="environment" className="hidden" ref={cameraInputRef} onChange={handleFileUpload} />
+                <div className="w-16 h-16 mx-auto bg-sprout-green/10 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-sprout-green/20 transition-all">
+                  <Camera className="w-7 h-7 text-harvest-green dark:text-sprout-green" />
+                </div>
+                <h3 className="text-lg font-display font-bold text-deep-earth dark:text-white mb-1">Take Photo</h3>
+                <p className="text-xs text-earth-soil dark:text-gray-400">Open camera instantly</p>
+              </GlassCard>
+            </motion.div>
 
-              <div className="w-20 h-20 mx-auto bg-sprout-green/10 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 group-hover:bg-sprout-green/20 transition-all">
-                <Camera className="w-8 h-8 text-harvest-green dark:text-sprout-green" />
-              </div>
-              <h3 className="text-2xl font-display font-bold text-deep-earth dark:text-white mb-2">Capture or Upload</h3>
-              <p className="text-earth-soil dark:text-gray-400">Take a clear photo of the {selectedCrop} leaf.</p>
-            </GlassCard>
-          </motion.div>
+            {/* From Gallery — opens media picker */}
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }} onClick={() => fileInputRef.current?.click()}>
+              <GlassCard className="group cursor-pointer p-8 text-center border-2 border-dashed border-glass-border hover:border-earth-amber relative overflow-hidden transition-colors">
+                <div className="absolute inset-0 bg-gradient-to-br from-earth-amber/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleFileUpload} />
+                <div className="w-16 h-16 mx-auto bg-earth-amber/10 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-earth-amber/20 transition-all">
+                  <ImagePlus className="w-7 h-7 text-earth-amber" />
+                </div>
+                <h3 className="text-lg font-display font-bold text-deep-earth dark:text-white mb-1">From Gallery</h3>
+                <p className="text-xs text-earth-soil dark:text-gray-400">Choose from media</p>
+              </GlassCard>
+            </motion.div>
+          </div>
+
+          <p className="text-center text-xs text-earth-soil/60 dark:text-gray-500 font-medium">Take a clear photo of the <span className="font-bold text-harvest-green">{selectedCrop}</span> leaf for best results.</p>
         </motion.div>
       ) : (
         <div className="grid lg:grid-cols-2 gap-8">
@@ -164,13 +183,13 @@ const DiseaseDetector: React.FC = () => {
 
                   {/* Diagnosis Header */}
                   <GlassCard className={`p-6 border-l-4 ${analysis.severity === 'High' ? 'border-l-red-500 bg-red-50/20' :
-                      analysis.severity === 'Medium' ? 'border-l-orange-500 bg-orange-50/20' :
-                        'border-l-green-500 bg-green-50/20'
+                    analysis.severity === 'Medium' ? 'border-l-orange-500 bg-orange-50/20' :
+                      'border-l-green-500 bg-green-50/20'
                     }`}>
                     <div className="flex items-center gap-3 mb-2">
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${analysis.severity === 'High' ? 'bg-red-100 text-red-800' :
-                          analysis.severity === 'Medium' ? 'bg-orange-100 text-orange-800' :
-                            'bg-green-100 text-green-800'
+                        analysis.severity === 'Medium' ? 'bg-orange-100 text-orange-800' :
+                          'bg-green-100 text-green-800'
                         }`}>
                         {analysis.severity} Risk
                       </span>
