@@ -4,8 +4,8 @@
 
 ![Krishi-Net Banner](https://via.placeholder.com/1200x400/064e3b/ffffff?text=KRISHI-NET+|+MISSION-CRITICAL+AGRI-AI+ECOSYSTEM)
 
-[![Status](https://img.shields.io/badge/System-Ultra_Resilient-success?style=for-the-badge&logo=shield-check)](#)
-[![Version](https://img.shields.io/badge/Version-1.2.0-blue?style=for-the-badge)](#)
+[![Live App](https://img.shields.io/badge/Live_App-Visit_Now-success?style=for-the-badge&logo=vercel)](https://krishi-net-1-0.vercel.app)
+[![API Status](https://img.shields.io/badge/API_Status-Online-green?style=for-the-badge&logo=render)](https://krishi-net-1-0-backend.onrender.com/docs)
 [![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](#)
 
 ```text
