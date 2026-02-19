@@ -25,12 +25,8 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7
 
     # ── CORS ──
-    BACKEND_CORS_ORIGINS: Union[List[str], str] = [
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:5173",
-    ]
+    # Allow all origins for production ease (Vercel, Mobile, etc.)
+    BACKEND_CORS_ORIGINS: Union[List[str], str] = ["*"]
 
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod
