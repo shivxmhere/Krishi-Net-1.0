@@ -1,383 +1,229 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, MapPin, TrendingUp, DollarSign, Navigation, ShoppingBag, Phone, Loader2, Calculator, BrainCircuit, Crosshair, ArrowRight } from 'lucide-react';
+import { Search, MapPin, TrendingUp, Navigation, Loader2, Crosshair, ChevronRight, Bell, Info } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-import { getHistoricalData } from '../constants';
+import { ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GlassCard } from './ui/GlassCard';
 import { Icons } from './ui/IconSystem';
 import { Button } from './ui/Button';
 
-// Default Data
-const DEFAULT_JAMMU_DATA: MarketData = {
-  trendingCrops: [
-    { name: "Basmati Rice", price: "₹3,850", trend: "up", demand: "Very High" },
-    { name: "Kashmiri Apple", price: "₹6,200", trend: "stable", demand: "High" },
-    { name: "Walnut", price: "₹28,500", trend: "up", demand: "Medium" },
-    { name: "Maize", price: "₹2,150", trend: "down", demand: "Medium" },
-    { name: "Rajmash", price: "₹14,000", trend: "up", demand: "High" }
-  ],
-  mandis: [
-    { name: "Narwal Mandi", distance: "8 km", bestFor: "Basmati, Fruits, Veg" },
-    { name: "Udhampur Mandi", distance: "65 km", bestFor: "Maize, Seasonal Veg" },
-    { name: "Parimpora Mandi", distance: "260 km", bestFor: "Apple, Walnut, Saffron" }
-  ],
-  buyers: [
-    { name: "JK Agro Industries", type: "Processor", contact: "+91 94191 12345", requirements: "Buying high-grade RS Pura Basmati" },
-    { name: "Valley Fruit Exports", type: "Exporter", contact: "0191-2456789", requirements: "Bulk procurement of A-Grade Apples" },
-    { name: "Dogra Grains", type: "Wholesaler", contact: "+91 99060 98765", requirements: "Need 200 Quintals Maize & Rajmash" }
-  ],
-  advisory: "Basmati prices from RS Pura belt are peaking due to high export demand. Apples from the valley are seeing stable rates."
-};
-
-interface MarketData {
-  trendingCrops: Array<{ name: string; price: string; trend: string; demand: string }>;
-  mandis: Array<{ name: string; distance: string; bestFor: string }>;
-  buyers: Array<{ name: string; type: string; contact: string; requirements: string }>;
-  advisory: string;
-}
-
-type TimeRange = '1W' | '1M' | '3M' | '6M';
+// Sparkline Mock Data
+const sparkData = [
+  { p: 10 }, { p: 20 }, { p: 15 }, { p: 25 }, { p: 22 }, { p: 30 }, { p: 28 }, { p: 40 }
+];
 
 const MarketPrices: React.FC = () => {
   const { t, language } = useLanguage();
   const [activeTab, setActiveTab] = useState<'trends' | 'mandis' | 'buyers' | 'profit'>('trends');
-  const [location, setLocation] = useState({ state: 'Jammu and Kashmir', district: 'Jammu' });
-  const [isLocating, setIsLocating] = useState(false);
-  const [manualMode, setManualMode] = useState(false);
-  const [tempLocation, setTempLocation] = useState({ state: '', district: '' });
-  const [marketData, setMarketData] = useState<MarketData>(DEFAULT_JAMMU_DATA);
+  const [location, setLocation] = useState({ state: 'Madhya Pradesh', district: 'Indore' });
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [selectedCropIndex, setSelectedCropIndex] = useState(0);
-  const [timeRange, setTimeRange] = useState<TimeRange>('1M');
-  const [quantity, setQuantity] = useState<number>(10);
-  const [costPerQuintal, setCostPerQuintal] = useState<number>(0);
 
-  useEffect(() => { detectLocation(); }, []);
-
-  const detectLocation = () => {
-    setIsLocating(true);
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          try {
-            const { latitude, longitude } = position.coords;
-            const response = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`);
-            const data = await response.json();
-            const detectedState = data.principalSubdivision || 'Jammu and Kashmir';
-            const detectedDistrict = data.city || data.locality || 'Jammu';
-            setLocation({ state: detectedState, district: detectedDistrict });
-            fetchMarketIntelligence(detectedState, detectedDistrict);
-          } catch (error) { console.error("Geo Error:", error); }
-          finally { setIsLocating(false); }
-        },
-        (error) => { console.warn(error); setIsLocating(false); }
-      );
-    } else { setIsLocating(false); }
-  };
-
-  useEffect(() => {
-    if (!isLocating) fetchMarketIntelligence(location.state, location.district);
-  }, [location, language, isLocating]);
-
-  const fetchMarketIntelligence = async (state: string, district: string) => {
-    setIsRefreshing(true);
-    try {
-      const api = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
-      const response = await fetch(`${api}/api/v1/market/analysis`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ location: `${district}, ${state}`, state, district, language })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data && data.trendingCrops?.length > 0) {
-          setMarketData(data);
-          if (selectedCropIndex >= data.trendingCrops.length) setSelectedCropIndex(0);
-        }
-      }
-    } catch (error) { console.warn("Using Offline Data"); }
-    finally { setIsRefreshing(false); }
-  };
-
-  const handleManualLocationSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (tempLocation.state && tempLocation.district) {
-      setLocation(tempLocation);
-      setManualMode(false);
+  const marketPredictions = [
+    {
+      name: 'Wheat (Sharbati)',
+      price: '₹2,850',
+      change: '+4.2% (7 Days)',
+      range: '₹2,800 - ₹2,920',
+      rec: 'SELL',
+      trend: 'up',
+      image: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?q=80&w=200&h=200&auto=format&fit=crop'
+    },
+    {
+      name: 'Cotton (Desi)',
+      price: '₹6,100',
+      change: '-0.5% (7 Days)',
+      range: '₹6,000 - ₹6,150',
+      rec: 'HOLD',
+      trend: 'down',
+      image: 'https://images.unsplash.com/photo-1594904351111-a072f80b1a71?q=80&w=200&h=200&auto=format&fit=crop'
+    },
+    {
+      name: 'Soybean (Yellow)',
+      price: '₹4,800',
+      change: '-1.8% (7 Days)',
+      range: '₹4,750 - ₹4,850',
+      rec: 'HOLD',
+      trend: 'down',
+      image: 'https://images.unsplash.com/photo-1599599810769-bcde5a160d32?q=80&w=200&h=200&auto=format&fit=crop'
+    },
+    {
+      name: 'Red Onion',
+      price: '₹1,950',
+      change: '+6.5% (7 Days)',
+      range: '₹1,800 - ₹2,000',
+      rec: 'SELL',
+      trend: 'up',
+      image: 'https://images.unsplash.com/photo-1508747703725-719777637510?q=80&w=200&h=200&auto=format&fit=crop'
     }
-  };
+  ];
 
-  const selectedCrop = marketData ? marketData.trendingCrops[selectedCropIndex] : DEFAULT_JAMMU_DATA.trendingCrops[0];
-
-  const chartData = useMemo(() => {
-    if (!selectedCrop) return [];
-    const price = parseFloat(selectedCrop.price.replace(/[^\d.]/g, '')) || 2000;
-    return getHistoricalData(price, timeRange);
-  }, [selectedCrop, timeRange]);
-
-  useEffect(() => {
-    if (selectedCrop) {
-      const price = parseFloat(selectedCrop.price.replace(/[^\d.]/g, '')) || 2000;
-      setCostPerQuintal(Math.round(price * 0.6));
-    }
-  }, [selectedCrop]);
-
-  const profit = useMemo(() => {
-    if (!selectedCrop) return 0;
-    const price = parseFloat(selectedCrop.price.replace(/[^\d.]/g, '')) || 0;
-    return (price * quantity) - (costPerQuintal * quantity);
-  }, [selectedCrop, quantity, costPerQuintal]);
+  const nearbyMandis = [
+    { name: 'Indore Mandi', dist: '12 km away' },
+    { name: 'Dewas Mandi', dist: '35 km away' },
+    { name: 'Ujjain Mandi', dist: '52 km away' }
+  ];
 
   return (
-    <div className="h-full space-y-6 pb-24">
-      {/* Header & Location */}
-      <GlassCard className="p-4 flex flex-col md:flex-row justify-between items-center gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-gradient-to-br from-earth-golden to-earth-amber rounded-xl flex items-center justify-center text-white shadow-lg">
-            <Icons.Market size={28} />
+    <div className="max-w-7xl mx-auto space-y-6">
+      {/* Search Header */}
+      <div className="flex items-center gap-6 mb-8">
+        <div className="flex-1 relative group">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-hover:text-emerald-500 transition-colors" size={20} />
+          <input
+            type="text"
+            placeholder="Search Mandi, Crop or say 'Gehu ka bhav'..."
+            className="w-full pl-12 pr-12 py-4 bg-white rounded-2xl border border-gray-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium text-sm"
+          />
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-emerald-500 text-white rounded-lg cursor-pointer">
+            <Icons.Advisory size={16} /> {/* Placeholder for mic/voice */}
           </div>
-          <div>
-            <h1 className="text-xl font-display font-bold text-deep-earth dark:text-white flex items-center gap-2">
-              {t('marketPrices')}
-              {isRefreshing && <Loader2 size={16} className="animate-spin text-earth-amber" />}
-            </h1>
-            <div className="flex items-center gap-2 text-earth-soil dark:text-gray-400 text-sm">
-              <MapPin size={14} />
-              <span className="font-bold">{location.district}, {location.state}</span>
-              <button onClick={() => setManualMode(!manualMode)} className="text-xs text-harvest-green dark:text-sprout-green font-bold underline ml-2">Change</button>
+        </div>
+        <div className="flex items-center gap-3">
+          <button className="p-3 bg-white rounded-full border border-gray-100 text-gray-400 relative">
+            <Icons.Bell size={20} />
+            <div className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border border-white"></div>
+          </button>
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-full border border-gray-100">
+            <Icons.Language size={16} className="text-gray-400" />
+            <span className="text-xs font-bold text-gray-700">English / हिन्दी</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid lg:grid-cols-12 gap-8">
+        {/* Left Column: Region & Mandis */}
+        <div className="lg:col-span-4 space-y-8">
+          <GlassCard className="p-6 relative overflow-hidden">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-extrabold text-gray-900 tracking-tight">Select Region</h3>
+              <span className="flex items-center gap-1.5 text-[10px] font-black uppercase text-emerald-600 tracking-widest px-2 py-0.5 bg-emerald-50 rounded-md ring-1 ring-emerald-100">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                Live Updates
+              </span>
+            </div>
+
+            {/* Map Placeholder - MP Indore */}
+            <div className="aspect-square bg-emerald-50/50 rounded-3xl border border-emerald-100 relative flex items-center justify-center p-8">
+              <svg viewBox="0 0 200 200" className="w-full h-full text-emerald-600/20 fill-emerald-100 stroke-emerald-200 stroke-2">
+                <path d="M50,150 L30,120 L40,80 L80,40 L120,30 L160,50 L170,100 L140,160 L90,170 Z" />
+                <motion.circle
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  cx="90" cy="110" r="6" className="fill-red-500 stroke-white stroke-2"
+                />
+                <text x="95" y="115" className="text-[10px] fill-gray-500 font-black">Indore</text>
+              </svg>
+              <div className="absolute inset-0 bg-gradient-to-t from-white/80 to-transparent pointer-events-none"></div>
+              <div className="absolute bottom-6 left-6 right-6 flex gap-3">
+                <div className="flex-1 p-3 bg-white rounded-xl shadow-lg border border-gray-100">
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">State</p>
+                  <p className="text-xs font-black text-gray-900 leading-none">Madhya Pradesh</p>
+                </div>
+                <div className="flex-1 p-3 bg-white rounded-xl shadow-lg border border-gray-100">
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">District</p>
+                  <p className="text-xs font-black text-gray-900 leading-none">Indore</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-8 space-y-4">
+              <div className="flex justify-between items-center">
+                <h4 className="text-sm font-black text-gray-900">Nearby Mandis</h4>
+                <button className="text-[10px] font-black text-emerald-600 hover:underline">View All</button>
+              </div>
+              {nearbyMandis.map((mandi, i) => (
+                <div key={i} className="flex items-center gap-4 p-4 rounded-2xl border border-gray-100 hover:border-emerald-100 transition-all cursor-pointer group">
+                  <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 group-hover:bg-emerald-500 group-hover:text-white transition-all">
+                    <Icons.Market size={20} />
+                  </div>
+                  <div className="flex-1">
+                    <h5 className="font-extrabold text-sm text-gray-900 leading-none mb-1">{mandi.name}</h5>
+                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wide">{mandi.dist}</p>
+                  </div>
+                  <ChevronRight size={16} className="text-gray-300 group-hover:translate-x-1 transition-transform" />
+                </div>
+              ))}
+            </div>
+          </GlassCard>
+        </div>
+
+        {/* Right Column: Market Predictions */}
+        <div className="lg:col-span-8 space-y-8">
+          <div className="flex items-end justify-between">
+            <div>
+              <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">Market Predictions</h2>
+              <p className="text-gray-500 font-bold text-sm">Real-time rates for <span className="text-emerald-600">Indore, MP</span></p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button className="px-4 py-2 bg-white border border-gray-100 rounded-lg text-xs font-black text-gray-700 flex items-center gap-2">
+                <Icons.Settings size={14} className="rotate-90" /> Filter
+              </button>
+              <button className="px-4 py-2 bg-white border border-gray-100 rounded-lg text-xs font-black text-gray-700 flex items-center gap-2">
+                <TrendingUp size={14} /> Sort
+              </button>
             </div>
           </div>
-        </div>
-        <Button variant="secondary" size="sm" onClick={detectLocation} disabled={isLocating} className="rounded-full">
-          {isLocating ? <Loader2 size={16} className="animate-spin mr-2" /> : <Crosshair size={16} className="mr-2" />}
-          {isLocating ? "Locating..." : "Locate Me"}
-        </Button>
-      </GlassCard>
 
-      {manualMode && (
-        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white/80 dark:bg-gray-800 p-4 rounded-xl shadow-lg border border-glass-border">
-          <form onSubmit={handleManualLocationSubmit} className="flex gap-2">
-            <input
-              placeholder="State"
-              className="flex-1 p-2 rounded-lg border border-gray-200 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-              value={tempLocation.state}
-              onChange={e => setTempLocation({ ...tempLocation, state: e.target.value })}
-            />
-            <input
-              placeholder="District"
-              className="flex-1 p-2 rounded-lg border border-gray-200 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-              value={tempLocation.district}
-              onChange={e => setTempLocation({ ...tempLocation, district: e.target.value })}
-            />
-            <Button type="submit" size="sm">Update</Button>
-          </form>
-        </motion.div>
-      )}
+          <div className="grid md:grid-cols-2 gap-6">
+            {marketPredictions.map((crop, i) => (
+              <GlassCard key={i} className="p-4 flex flex-col group">
+                <div className="flex justify-between items-start mb-4">
+                  <div className="relative">
+                    <img src={crop.image} alt={crop.name} className="w-16 h-16 rounded-xl object-cover ring-4 ring-gray-50" />
+                    <span className={`absolute -top-2 -right-2 px-2 py-0.5 rounded shadow-sm text-[8px] font-black tracking-widest uppercase ${crop.rec === 'SELL' ? 'bg-emerald-500 text-white' : 'bg-orange-100 text-orange-700'
+                      }`}>
+                      RECOMMENDATION: {crop.rec}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <h4 className="font-extrabold text-gray-900">{crop.name}</h4>
+                    <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">Indore Mandi</p>
+                  </div>
+                </div>
 
-      {/* Ticker / Advisory */}
-      <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-deep-earth to-dark-canopy text-white p-4 shadow-lg border border-glass-border">
-        <div className="flex items-start gap-4 z-10 relative">
-          <div className="bg-white/10 p-2 rounded-full">
-            <BrainCircuit size={20} className="text-sprout-green" />
-          </div>
-          <div>
-            <h3 className="font-bold text-sprout-green text-xs uppercase tracking-widest mb-1">AI Market Insight</h3>
-            <p className="text-sm font-medium opacity-90">{marketData.advisory}</p>
-          </div>
-        </div>
-        <div className="absolute top-0 right-0 w-32 h-32 bg-sprout-green/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex bg-white/50 dark:bg-black/20 p-1 rounded-xl border border-glass-border overflow-x-auto no-scrollbar">
-        {[
-          { id: 'trends', label: 'Price Trends', icon: TrendingUp },
-          { id: 'mandis', label: 'Nearby Mandis', icon: Navigation },
-          { id: 'buyers', label: 'Buyers', icon: ShoppingBag },
-          { id: 'profit', label: 'Calculator', icon: Calculator }
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === tab.id
-                ? 'bg-harvest-green text-white shadow-md'
-                : 'text-earth-soil dark:text-gray-400 hover:bg-white/30 dark:hover:bg-white/5'
-              }`}
-          >
-            <tab.icon size={16} /> {tab.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="min-h-[400px]">
-        <AnimatePresence mode="wait">
-          {activeTab === 'trends' && (
-            <motion.div
-              key="trends"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="space-y-6"
-            >
-              {/* Crop Scroller */}
-              <div className="flex overflow-x-auto gap-3 pb-2 no-scrollbar">
-                {marketData.trendingCrops.map((crop, i) => (
-                  <GlassCard
-                    key={i}
-                    onClick={() => setSelectedCropIndex(i)}
-                    className={`min-w-[140px] p-4 cursor-pointer transition-all border-2 ${selectedCropIndex === i
-                        ? 'border-harvest-green bg-gradient-to-br from-harvest-green/10 to-transparent scale-105'
-                        : 'border-transparent hover:border-glass-border'
-                      }`}
-                  >
-                    <p className="text-sm font-bold text-deep-earth dark:text-white truncate">{crop.name}</p>
-                    <p className="text-lg font-black text-harvest-green dark:text-sprout-green mt-1">{crop.price}</p>
-                    <div className={`mt-2 text-xs font-bold flex items-center gap-1 ${crop.trend === 'up' ? 'text-green-600' : 'text-red-500'}`}>
-                      {crop.trend === 'up' ? <TrendingUp size={12} /> : <TrendingUp size={12} className="rotate-180" />}
-                      {crop.trend === 'up' ? 'Rising' : 'Falling'}
-                    </div>
-                  </GlassCard>
-                ))}
-              </div>
-
-              {selectedCrop && (
-                <GlassCard className="p-6">
-                  <div className="flex justify-between items-end mb-6">
+                <div className="flex-1 flex flex-col justify-center py-4">
+                  <div className="flex justify-between items-end mb-4">
                     <div>
-                      <h3 className="text-4xl font-display font-bold text-deep-earth dark:text-white">{selectedCrop.price}</h3>
-                      <p className="text-earth-soil dark:text-gray-400 font-medium">{selectedCrop.name} Price History</p>
+                      <h3 className="text-3xl font-black text-gray-900 tracking-tight">{crop.price}</h3>
+                      <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">per Quintal</p>
                     </div>
-                    <div className="flex bg-gray-100 dark:bg-white/10 rounded-lg p-1">
-                      {(['1W', '1M', '3M', '6M'] as TimeRange[]).map((r) => (
-                        <button
-                          key={r}
-                          onClick={() => setTimeRange(r)}
-                          className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${timeRange === r
-                              ? 'bg-white dark:bg-deep-earth shadow-sm text-deep-earth dark:text-white'
-                              : 'text-gray-500 dark:text-gray-400'
-                            }`}
-                        >
-                          {r}
-                        </button>
-                      ))}
+                    <div className="text-right">
+                      <p className={`text-sm font-black flex items-center gap-1 justify-end ${crop.trend === 'up' ? 'text-emerald-500' : 'text-orange-500'}`}>
+                        {crop.trend === 'up' ? '▲' : '▼'} {crop.change}
+                      </p>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Range: {crop.range}</p>
                     </div>
                   </div>
 
-                  <div className="h-[300px] w-full">
+                  <div className="h-16 w-full">
                     <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={chartData}>
-                        <defs>
-                          <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#1a6b3c" stopOpacity={0.3} />
-                            <stop offset="95%" stopColor="#1a6b3c" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
-                        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} minTickGap={30} />
-                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} domain={['auto', 'auto']} />
-                        <Tooltip
-                          contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', background: 'rgba(255, 255, 255, 0.9)' }}
+                      <AreaChart data={sparkData}>
+                        <Area
+                          type="monotone"
+                          dataKey="p"
+                          stroke={crop.trend === 'up' ? '#10b981' : '#f97316'}
+                          fill={crop.trend === 'up' ? '#10b981' : '#f97316'}
+                          fillOpacity={0.15}
+                          strokeWidth={3}
                         />
-                        <Area type="monotone" dataKey="price" stroke="#1a6b3c" strokeWidth={3} fillOpacity={1} fill="url(#colorPrice)" />
                       </AreaChart>
                     </ResponsiveContainer>
                   </div>
-                </GlassCard>
-              )}
-            </motion.div>
-          )}
-
-          {activeTab === 'mandis' && (
-            <motion.div key="mandis" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-              {marketData.mandis.map((mandi, i) => (
-                <GlassCard key={i} className="p-6 flex items-center justify-between group">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/20 rounded-full flex items-center justify-center text-orange-600">
-                      <Navigation size={24} />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-lg text-deep-earth dark:text-white">{mandi.name}</h3>
-                      <p className="text-sm font-medium text-earth-soil dark:text-gray-400">{mandi.distance} away</p>
-                      <span className="inline-block mt-2 text-xs font-bold bg-gray-100 dark:bg-white/10 px-2 py-1 rounded text-gray-600 dark:text-gray-300">
-                        {mandi.bestFor}
-                      </span>
-                    </div>
-                  </div>
-                  <ArrowRight className="text-gray-300 group-hover:text-orange-500 transition-colors" />
-                </GlassCard>
-              ))}
-            </motion.div>
-          )}
-
-          {activeTab === 'buyers' && (
-            <motion.div key="buyers" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid md:grid-cols-2 gap-4">
-              {marketData.buyers.map((buyer, i) => (
-                <GlassCard key={i} className="p-6 hover:border-sprout-green/50 transition-colors">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h3 className="font-bold text-lg text-deep-earth dark:text-white">{buyer.name}</h3>
-                      <span className="text-xs font-bold bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-2.5 py-1 rounded-full">{buyer.type}</span>
-                    </div>
-                    <a href={`tel:${buyer.contact}`} className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center text-white shadow-lg hover:scale-105 transition-transform">
-                      <Phone size={18} />
-                    </a>
-                  </div>
-                  <div className="pt-4 border-t border-glass-border">
-                    <p className="text-xs font-bold text-earth-soil/60 uppercase tracking-wider mb-1">Requirements</p>
-                    <p className="text-sm font-medium text-deep-earth dark:text-gray-300">{buyer.requirements}</p>
-                  </div>
-                </GlassCard>
-              ))}
-            </motion.div>
-          )}
-
-          {activeTab === 'profit' && selectedCrop && (
-            <motion.div key="profit" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-              <GlassCard className="p-8">
-                <h3 className="font-bold text-xl text-deep-earth dark:text-white mb-8 flex items-center gap-3">
-                  <Calculator size={24} className="text-earth-golden" />
-                  Profit Estimator for <span className="text-harvest-green dark:text-sprout-green">{selectedCrop.name}</span>
-                </h3>
-                <div className="grid md:grid-cols-2 gap-8 mb-8">
-                  <div>
-                    <label className="text-sm font-bold text-earth-soil dark:text-gray-400 mb-2 block">Quantity to Sell</label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        value={quantity}
-                        onChange={e => setQuantity(Number(e.target.value))}
-                        className="w-full p-4 bg-gray-50 dark:bg-black/30 border border-gray-200 dark:border-gray-700 rounded-xl text-2xl font-black outline-none focus:ring-2 focus:ring-harvest-green text-deep-earth dark:text-white"
-                      />
-                      <span className="absolute right-4 top-4 text-sm font-bold text-gray-400 mt-1">Quintals</span>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-sm font-bold text-earth-soil dark:text-gray-400 mb-2 block">Cost per Quintal</label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        value={costPerQuintal}
-                        onChange={e => setCostPerQuintal(Number(e.target.value))}
-                        className="w-full p-4 bg-gray-50 dark:bg-black/30 border border-gray-200 dark:border-gray-700 rounded-xl text-2xl font-black outline-none focus:ring-2 focus:ring-harvest-green text-deep-earth dark:text-white"
-                      />
-                      <span className="absolute right-4 top-4 text-sm font-bold text-gray-400 mt-1">₹</span>
-                    </div>
-                  </div>
                 </div>
-                <div className="bg-gradient-to-r from-harvest-green to-leaf-green p-6 rounded-2xl text-white flex justify-between items-center shadow-lg shadow-green-500/20">
-                  <div>
-                    <p className="font-medium opacity-90">Estimated Net Profit</p>
-                    <p className="text-xs opacity-75">Based on market price: {selectedCrop.price}</p>
-                  </div>
-                  <p className="text-4xl font-display font-bold">₹{profit.toLocaleString()}</p>
+
+                <div className="flex gap-2 mt-4 pt-4 border-t border-gray-100">
+                  <button className="flex-1 py-2.5 bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 shadow-md shadow-emerald-500/10 transition-all">
+                    {crop.rec === 'SELL' ? 'Sell Now Details' : 'View Trends'}
+                  </button>
+                  <button className="p-2.5 bg-gray-900 text-white rounded-xl hover:bg-black transition-all">
+                    <Bell size={16} />
+                  </button>
                 </div>
               </GlassCard>
-            </motion.div>
-          )}
-
-        </AnimatePresence>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

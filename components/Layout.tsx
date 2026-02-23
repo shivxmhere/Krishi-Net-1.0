@@ -103,91 +103,106 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }) => {
       </AnimatePresence>
 
       {/* Desktop Sidebar - Solid */}
-      <aside className="hidden md:flex w-80 h-screen fixed z-30 flex-col bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800">
+      <aside className="hidden md:flex w-72 h-screen fixed z-30 flex-col bg-white border-r border-gray-100">
         {/* Logo Section */}
-        <div className="p-8 pb-4">
+        <div className="p-6">
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="flex items-center gap-4"
+            className="flex items-center gap-3"
           >
-            <div className="w-12 h-12 bg-green-600 rounded-xl flex items-center justify-center text-white shadow-lg">
-              <Icons.Logo size={28} className="text-white" />
+            <div className="w-10 h-10 bg-emerald-500 rounded-lg flex items-center justify-center text-white shadow-sm">
+              <Icons.Logo size={24} className="text-white" />
             </div>
-            <div>
-              <h1 className="text-2xl font-bold font-display tracking-tight text-gray-900 dark:text-white">Krishi-Net</h1>
-              <p className="text-xs font-bold tracking-widest text-green-600 uppercase">Smart Farming</p>
-            </div>
+            <h1 className="text-xl font-extrabold tracking-tight text-gray-900">AgriScan AI</h1>
           </motion.div>
         </div>
 
-        {/* User Profile Card - Simple */}
-        <div className="px-6 py-4">
-          <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center gap-3">
+        {/* User Profile Card */}
+        <div className="px-4 py-2">
+          <div className="p-4 rounded-xl border border-gray-100 flex items-center gap-3">
             <div className="relative">
-              <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center text-green-700 dark:text-green-400 font-bold text-lg">
-                {user?.name?.[0] || 'F'}
+              <img
+                src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=100&h=100&auto=format&fit=crop"
+                alt="Profile"
+                className="w-10 h-10 rounded-full object-cover border-2 border-emerald-500/20"
+              />
+              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white flex items-center justify-center">
+                <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
               </div>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-bold text-sm text-gray-900 dark:text-white truncate">{user?.name || 'Farmer'}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user?.location || 'India'}</p>
+              <p className="font-bold text-sm text-gray-900 truncate">{user?.name || 'Rajesh Kumar'}</p>
+              <p className="text-xs text-gray-400 truncate">{user?.location || 'Pune, MH'}</p>
             </div>
+          </div>
+          <div className="flex items-center justify-between mt-2 px-1">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Online</span>
+            </div>
+            <span className="text-[10px] font-bold text-gray-400">v2.4</span>
           </div>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-4 mt-2 space-y-1 overflow-y-auto no-scrollbar">
+        <nav className="flex-1 px-3 mt-4 space-y-1 overflow-y-auto no-scrollbar">
           {navItems.map((item) => {
             const isActive = currentView === item.id;
             return (
               <motion.button
                 key={item.id}
                 onClick={() => setView(item.id)}
-                whileHover={{ x: 4 }}
+                whileHover={{ x: 4, backgroundColor: 'rgba(236, 253, 245, 0.5)' }}
                 whileTap={{ scale: 0.98 }}
-                className={`w-full flex items-center gap-4 px-5 py-4 rounded-xl font-medium transition-all relative overflow-hidden group ${isActive
-                  ? 'text-harvest-green dark:text-sprout-green bg-gradient-to-r from-sprout-green/20 to-transparent'
-                  : 'text-gray-600 dark:text-gray-300 hover:text-harvest-green dark:hover:text-sprout-green hover:bg-white/20'
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-bold transition-all ${isActive
+                  ? 'text-emerald-700 bg-emerald-50'
+                  : 'text-gray-500 hover:text-emerald-600'
                   }`}
               >
-                {isActive && (
-                  <motion.div
-                    layoutId="activeNav"
-                    className="absolute left-0 top-0 bottom-0 w-1 bg-sprout-green rounded-r-full"
-                  />
-                )}
                 <item.Icon
-                  size={22}
-                  className={`transition-colors duration-300 ${isActive ? 'text-inherit drop-shadow-lg' : 'group-hover:text-inherit'}`}
+                  size={20}
+                  className={`${isActive ? 'text-emerald-500' : 'text-gray-400 group-hover:text-emerald-500'}`}
                 />
-                <span className="text-base tracking-wide">{item.label}</span>
+                <span className="text-sm">{item.label}</span>
               </motion.button>
             )
           })}
         </nav>
 
-        {/* Bottom Actions */}
-        <div className="p-6 border-t border-glass-border grid grid-cols-3 gap-3">
-          <button
+        {/* Bottom Actions - Match Screenshot */}
+        <div className="p-4 space-y-4">
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={startListening}
-            className="flex items-center justify-center p-3 rounded-xl bg-sky-morning/10 text-sky-600 hover:bg-sky-morning/20 border border-sky-morning/20 transition-all hover:scale-105"
-            title="Voice Command"
+            className="w-full flex items-center justify-center gap-3 py-3 rounded-xl bg-emerald-500 text-white font-bold shadow-lg shadow-emerald-500/20"
           >
             <Mic size={20} />
-          </button>
-          <button
-            onClick={toggleTheme}
-            className="flex items-center justify-center p-3 rounded-xl bg-earth-golden/10 text-earth-amber hover:bg-earth-golden/20 border border-earth-golden/20 transition-all hover:scale-105"
-          >
-            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-          </button>
-          <button
-            onClick={handleLogout}
-            className="flex items-center justify-center p-3 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20 transition-all hover:scale-105"
-          >
-            <LogOut size={20} />
-          </button>
+            Voice Query
+          </motion.button>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400 px-1">
+              <span>Language</span>
+              <Icons.Language size={14} />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button className="py-2 rounded-lg border border-gray-100 text-xs font-bold text-gray-500 hover:border-emerald-200 hover:text-emerald-600 transition-all">English</button>
+              <button className="py-2 rounded-lg bg-emerald-100 text-emerald-700 text-xs font-bold transition-all">हिन्दी</button>
+              <button className="py-2 rounded-lg border border-gray-100 text-xs font-bold text-gray-500 hover:border-emerald-200 hover:text-emerald-600 transition-all">मराठी</button>
+              <button className="py-2 rounded-lg border border-gray-100 text-xs font-bold text-gray-500 hover:border-emerald-200 hover:text-emerald-600 transition-all">தமிழ்</button>
+            </div>
+          </div>
+
+          <div className="pt-2 flex items-center justify-between px-1">
+            <button onClick={toggleTheme} className="p-2 text-gray-400 hover:text-gray-600">
+              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+            <button onClick={handleLogout} className="p-2 text-gray-400 hover:text-red-500">
+              <LogOut size={18} />
+            </button>
+          </div>
         </div>
       </aside>
 
@@ -213,7 +228,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }) => {
       </div>
 
       {/* Main Content Area */}
-      <main className="flex-1 md:ml-80 relative z-10 h-screen overflow-y-auto pt-20 md:pt-0 scroll-smooth">
+      <main className="flex-1 md:ml-72 relative z-10 h-screen overflow-y-auto pt-20 md:pt-0 scroll-smooth bg-gray-50">
         <div className="p-4 md:p-8 max-w-7xl mx-auto pb-28 md:pb-12">
           <AnimatePresence mode="wait">
             <motion.div

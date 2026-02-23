@@ -1,67 +1,32 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&display=swap');
 
 @layer base {
   :root {
-    /* Custom Pastel Theme */
-    --brand-pastel-green: #77DD77;
-    --bg-antique-white: #faebd7;
+    --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+    --font-display: "Manrope", sans-serif;
 
-    /* Standard Light Mode Overrides */
-    --background: 250 235 215;
-    /* rgb(250, 235, 215) is #faebd7 */
-    --foreground: 50 50 50;
-  }
+    --background: 243 244 246;
+    /* #f3f4f6 Lightest Gray */
+    --foreground: 31 41 55;
+    /* #1f2937 Gray 800 */
 
-  .dark {
-    /* Standard Dark Mode - Keeping it standard for now as user asked for Antique White which is light */
-    --background: 15 23 42;
-    --foreground: 255 255 255;
+    --primary: 16 185 129;
+    /* Emerald 500 */
+    --primary-foreground: 255 255 255;
   }
 }
 
 body {
-  background-color: #faebd7;
-  /* Antique White */
-  color: #3f3f3f;
-  /* Dark Gray for contrast */
-}
-
-.dark body {
-  background-color: rgb(17 24 39);
-  color: rgb(243 244 246);
-}
-
-/* Force override standard Tailwind utilities to brand color */
-.bg-green-600 {
-  background-color: #77DD77 !important;
-  color: #1f2937 !important;
-  /* Dark Gray text for contrast on Light Green */
-}
-
-.text-green-600 {
-  color: #55aa55 !important;
-  /* Darker green for text readability */
-}
-
-.bg-green-100 {
-  background-color: rgba(119, 221, 119, 0.2) !important;
-  color: #1a4d1a !important;
-}
-
-/* Ensure buttons using this class look good */
-button.bg-green-600:hover {
-  background-color: #66cc66 !important;
-  /* Slightly darker on hover */
-}
-
-.text-green-700 {
-  color: #55aa55 !important;
-  /* Slightly darker for text readability */
+  font-family: "Manrope", sans-serif;
+  background-color: #f3f4f6;
+  color: #1f2937;
+  -webkit-font-smoothing: antialiased;
 }
 
 /* Scrollbars */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -69,14 +34,35 @@ button.bg-green-600:hover {
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: #77DD77;
+  background-color: #d1d5db;
   border-radius: 9999px;
 }
 
-.dark ::-webkit-scrollbar-thumb {
-  background-color: #475569;
+::-webkit-scrollbar-thumb:hover {
+  background-color: #9ca3af;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background-color: #66cc66;
+
+/* ── Splash Screen: Gold Shimmer Title ── */
+.splash-text-shimmer {
+  background: linear-gradient(to right,
+      #ffffff 20%,
+      #fcd34d 40%,
+      #fcd34d 60%,
+      #ffffff 80%);
+  background-size: 200% auto;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: shimmer 3s linear infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% center;
+  }
+
+  100% {
+    background-position: 200% center;
+  }
 }

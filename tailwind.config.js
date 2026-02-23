@@ -49,6 +49,8 @@ export default {
                 'pulse-glow': 'pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
                 'slide-up': 'slide-up 0.5s ease-out',
                 'scan': 'scan 2s linear infinite',
+                'text-shimmer': 'shimmer 3s linear infinite',
+                'pulse-slow': 'pulseSlow 3s ease-in-out infinite',
             },
             keyframes: {
                 float: {
@@ -70,6 +72,14 @@ export default {
                 scan: {
                     '0%': { top: '0%' },
                     '100%': { top: '100%' },
+                },
+                shimmer: {
+                    '0%': { backgroundPosition: '-200% center' },
+                    '100%': { backgroundPosition: '200% center' },
+                },
+                pulseSlow: {
+                    '0%, 100%': { opacity: '1', transform: 'scale(1)' },
+                    '50%': { opacity: '.95', transform: 'scale(1.05)' },
                 }
             }
         },

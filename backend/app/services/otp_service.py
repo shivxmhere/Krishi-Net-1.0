@@ -29,6 +29,8 @@ class OTPService:
                 )
                 self._twilio_ready = True
                 print("✅ Twilio SMS client initialized")
+            except ImportError:
+                print("⚠️  Twilio package not installed — SMS OTP disabled")
             except Exception as e:
                 print(f"⚠️  Twilio not available: {e}")
 

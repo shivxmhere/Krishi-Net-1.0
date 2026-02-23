@@ -6,46 +6,91 @@ const API_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000'
 
 const USER_STORAGE_KEY = 'krishi_net_user';
 const TOKEN_STORAGE_KEY = 'krishi_net_token';
+const LOCAL_USERS_KEY = 'krishi_net_local_users';
+
+// ── Lightweight password hashing for offline mode (SHA-256) ──
+async function hashPasswordLocal(password: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password + '_krishi_salt_2024');
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// ── Local user store helpers ──
+interface LocalUserRecord {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  location: string;
+  state: string;
+  passwordHash: string;
+  joinedDate: string;
+  isOnboarded: boolean;
+}
+
+function getLocalUsers(): LocalUserRecord[] {
+  try {
+    return JSON.parse(localStorage.getItem(LOCAL_USERS_KEY) || '[]');
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalUsers(users: LocalUserRecord[]) {
+  localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(users));
+}
+
+function generateLocalId(): string {
+  return 'local_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9);
+}
 
 // Helper to map Backend User (snake_case) -> Frontend User (camelCase)
 const mapBackendUser = (backendUser: any): User => {
   return {
     id: backendUser.id,
-    name: backendUser.name || backendUser.full_name || 'Farmer', // Handle both formats
+    name: backendUser.name || backendUser.full_name || 'Farmer',
     email: backendUser.email || '',
     phone: backendUser.phone || '',
-    // Polyfill missing fields
     location: backendUser.location || 'India',
     state: backendUser.state || 'Madhya Pradesh',
     joinedDate: backendUser.joined_date || new Date().toISOString(),
-    // Handle boolean logic for onboarding
     isOnboarded: typeof backendUser.isOnboarded === 'boolean'
       ? backendUser.isOnboarded
       : (backendUser.is_onboarded || false)
   };
 };
 
+// ── Check if an error is a network error (backend unreachable) ──
+function isNetworkError(error: any): boolean {
+  return (
+    error instanceof TypeError &&
+    (error.message.includes('Failed to fetch') ||
+      error.message.includes('NetworkError') ||
+      error.message.includes('Network request failed'))
+  );
+}
+
 export const getCurrentUser = (): User | null => {
   const storedUser = localStorage.getItem(USER_STORAGE_KEY);
   const storedToken = localStorage.getItem(TOKEN_STORAGE_KEY);
 
   if (!storedUser || !storedToken) {
-    if (storedUser) logoutUser(); // Clean up partial state
+    if (storedUser) logoutUser();
     return null;
   }
 
   try {
     const parsed = JSON.parse(storedUser);
 
-    // Validate critical fields - if name is missing but full_name exists, migrate it
     if (!parsed.name && parsed.full_name) {
       console.log("Auto-fixing corrupted user data from storage...");
       const fixed = mapBackendUser(parsed);
-      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(fixed)); // Save fix
+      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(fixed));
       return fixed;
     }
 
-    // If name is totally missing, treat as invalid/logged out
     if (!parsed.name) {
       console.warn("Invalid user data in storage (missing name), clearing session.");
       logoutUser();
@@ -55,7 +100,7 @@ export const getCurrentUser = (): User | null => {
     return parsed;
   } catch (e) {
     console.error("Error parsing user from storage:", e);
-    logoutUser(); // Clear bad data
+    logoutUser();
     return null;
   }
 };
@@ -63,26 +108,19 @@ export const getCurrentUser = (): User | null => {
 export const logoutUser = () => {
   localStorage.removeItem(USER_STORAGE_KEY);
   localStorage.removeItem(TOKEN_STORAGE_KEY);
-  window.location.reload(); // Force reload to clear React state
+  window.location.reload();
 };
 
-// Simulation of sending OTP (Nolonger used in UI but kept for compatibility or future use)
-export const sendOTP = async (identifier: string): Promise<void> => {
-  console.log("OTP requested for:", identifier);
-  // OTP is now handled/bypassed on backend
-};
+// OTP stubs (not used in current UI)
+export const sendOTP = async (_identifier: string): Promise<void> => { };
+export const verifyOTP = async (_identifier: string, _inputOtp: string): Promise<boolean> => true;
+export const checkUserExists = async (_identifier: string): Promise<boolean> => false;
 
-export const verifyOTP = async (identifier: string, inputOtp: string): Promise<boolean> => {
-  // OTP is bypassed
-  return true;
-};
-
-export const checkUserExists = async (identifier: string): Promise<boolean> => {
-  return false; // Always allow signup attempt, let backend handle duplicate error
-};
-
-// LOGIN: Connects to Real Backend
+// ════════════════════════════════════════════════════════════════
+// LOGIN — tries backend first, falls back to local auth
+// ════════════════════════════════════════════════════════════════
 export const loginUser = async (identifier: string, password?: string): Promise<User> => {
+  // 1. Try real backend
   try {
     const response = await fetch(`${API_URL}/api/v1/auth/login`, {
       method: 'POST',
@@ -100,21 +138,28 @@ export const loginUser = async (identifier: string, password?: string): Promise<
     }
 
     const data = await response.json();
-    const user = mapBackendUser(data.user); // Transform
+    const user = mapBackendUser(data.user);
 
-    // Save Token & User
     localStorage.setItem(TOKEN_STORAGE_KEY, data.access_token);
     localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
-
     return user;
+
   } catch (error: any) {
-    console.error("Login Error:", error);
+    // 2. If it's a network error → fall back to local auth
+    if (isNetworkError(error)) {
+      console.log("🔄 Backend unreachable — using offline authentication");
+      return loginUserLocal(identifier, password || '');
+    }
+    // Otherwise re-throw (e.g. wrong password from backend)
     throw error;
   }
 };
 
-// REGISTER: Connects to Real Backend (Auto-Verifies)
+// ════════════════════════════════════════════════════════════════
+// REGISTER — tries backend first, falls back to local
+// ════════════════════════════════════════════════════════════════
 export const registerUser = async (userData: any): Promise<User> => {
+  // 1. Try real backend
   try {
     const response = await fetch(`${API_URL}/api/v1/auth/signup`, {
       method: 'POST',
@@ -134,33 +179,129 @@ export const registerUser = async (userData: any): Promise<User> => {
 
     const data = await response.json();
 
-    // Auto-login after signup (Backend now returns token)
     if (data.access_token) {
-      const user = mapBackendUser(data.user); // Transform
-
+      const user = mapBackendUser(data.user);
       localStorage.setItem(TOKEN_STORAGE_KEY, data.access_token);
       localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
       return user;
     } else {
-      // Fallback (should not happen with new backend logic)
       throw new Error("Registration successful but no token received.");
     }
 
   } catch (error: any) {
-    console.error("Registration Error:", error);
+    // 2. If it's a network error → fall back to local registration
+    if (isNetworkError(error)) {
+      console.log("🔄 Backend unreachable — using offline registration");
+      return registerUserLocal(userData);
+    }
     throw error;
   }
 };
 
+// ════════════════════════════════════════════════════════════════
+// LOCAL (OFFLINE) AUTH FUNCTIONS
+// ════════════════════════════════════════════════════════════════
+
+async function loginUserLocal(identifier: string, password: string): Promise<User> {
+  const localUsers = getLocalUsers();
+  const passwordHash = await hashPasswordLocal(password);
+
+  const found = localUsers.find(u =>
+    (u.phone === identifier || u.email === identifier) && u.passwordHash === passwordHash
+  );
+
+  if (!found) {
+    // Check if user exists at all (for better error message)
+    const userExists = localUsers.find(u => u.phone === identifier || u.email === identifier);
+    if (userExists) {
+      throw new Error("Incorrect password. Please try again.");
+    }
+    throw new Error("No account found. Please sign up first.");
+  }
+
+  const user: User = {
+    id: found.id,
+    name: found.name,
+    email: found.email,
+    phone: found.phone,
+    location: found.location,
+    state: found.state,
+    joinedDate: found.joinedDate,
+    isOnboarded: found.isOnboarded,
+  };
+
+  // Save session
+  localStorage.setItem(TOKEN_STORAGE_KEY, 'offline_token_' + found.id);
+  localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+  return user;
+}
+
+async function registerUserLocal(userData: any): Promise<User> {
+  const localUsers = getLocalUsers();
+  const passwordHash = await hashPasswordLocal(userData.password);
+
+  // Check for duplicate
+  const exists = localUsers.find(u =>
+    (userData.phone && u.phone === userData.phone) ||
+    (userData.email && u.email === userData.email)
+  );
+
+  if (exists) {
+    throw new Error("An account with this phone/email already exists. Please sign in.");
+  }
+
+  const newId = generateLocalId();
+  const record: LocalUserRecord = {
+    id: newId,
+    name: userData.name,
+    email: userData.email || '',
+    phone: userData.phone || '',
+    location: userData.location || 'India',
+    state: userData.state || '',
+    passwordHash,
+    joinedDate: new Date().toISOString(),
+    isOnboarded: false,
+  };
+
+  localUsers.push(record);
+  saveLocalUsers(localUsers);
+
+  const user: User = {
+    id: newId,
+    name: record.name,
+    email: record.email,
+    phone: record.phone,
+    location: record.location,
+    state: record.state,
+    joinedDate: record.joinedDate,
+    isOnboarded: false,
+  };
+
+  localStorage.setItem(TOKEN_STORAGE_KEY, 'offline_token_' + newId);
+  localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+  return user;
+}
+
+// ════════════════════════════════════════════════════════════════
+// PROFILE & ONBOARDING
+// ════════════════════════════════════════════════════════════════
+
 export const completeOnboarding = async (user: User): Promise<User> => {
   const updatedUser = { ...user, isOnboarded: true };
-  localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser)); // Update local state
+  localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser));
+
+  // Also update local user record if exists
+  const localUsers = getLocalUsers();
+  const idx = localUsers.findIndex(u => u.id === user.id);
+  if (idx >= 0) {
+    localUsers[idx].isOnboarded = true;
+    saveLocalUsers(localUsers);
+  }
+
   return updatedUser;
 };
 
-
 export const updateUserProfile = async (updatedUser: User): Promise<User> => {
-  // Local update only for demo, ideally would sync to backend
   localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser));
   return updatedUser;
 };

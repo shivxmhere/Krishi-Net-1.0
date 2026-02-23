@@ -2,7 +2,6 @@
 fastapi==0.109.2
 uvicorn[standard]==0.27.1
 sqlalchemy==2.0.25
-psycopg2-binary==2.9.9
 python-dotenv==1.0.1
 pydantic==2.6.1
 pydantic-settings==2.1.0
@@ -14,6 +13,10 @@ aiofiles==23.2.1
 httpx==0.26.0
 Pillow>=10.3.0
 numpy==1.26.4
-tensorflow-cpu==2.15.0
-twilio==8.13.0
 alembic==1.13.1
+
+# ── Optional (install separately if needed) ──
+# psycopg2-binary==2.9.9   # Only for PostgreSQL (SQLite used by default)
+# tensorflow-cpu==2.15.0   # Only for ML disease detection model
+# twilio==8.13.0           # Only for SMS OTP delivery
+
