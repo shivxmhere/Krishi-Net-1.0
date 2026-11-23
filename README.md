@@ -16,6 +16,7 @@ Krishi-Net is a developing AgriTech platform for farmers and the wider agricultu
 | AI advisory chat | Live provider integration when `GROQ_API_KEY` is configured; responses are unverified |
 | Disease image analysis | Authenticated AI-assisted analysis with 8 MB upload limit; local ML model optional |
 | Market watchlist | Browser-local add/search/sort/remove; no automatic price alerts |
+| Weather | City/district search through Open-Meteo; forecast and source shown |
 | Market information | Links to government sources; **verified live price ingestion not built** |
 | Community | Authenticated discussion posts, replies and author-only deletion |
 | Produce marketplace | Authenticated listings, enquiries, seller inbox and author-only closure |
