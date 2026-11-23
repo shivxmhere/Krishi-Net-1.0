@@ -13,7 +13,7 @@ import Onboarding from './components/Onboarding';
 import Welcome from './components/Welcome';
 import SplashScreen from './components/SplashScreen';
 import { AppView, User } from './types';
-import { getCurrentUser, completeOnboarding } from './services/authService';
+import { restoreSession, completeOnboarding } from './services/authService';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { VoiceProvider } from './contexts/VoiceContext';
@@ -37,11 +37,9 @@ function AppContent() {
     }
 
     // 2. Check User Session
-    const storedUser = getCurrentUser();
-    if (storedUser) {
-      setUser(storedUser);
-    }
-    setLoading(false);
+    restoreSession().then((storedUser) => {
+      if (storedUser) setUser(storedUser);
+    }).finally(() => setLoading(false));
   }, []);
 
   const handleTourComplete = () => {
