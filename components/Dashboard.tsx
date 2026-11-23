@@ -9,6 +9,7 @@ const actions = [
   { name: 'Scan a crop', description: 'Upload a plant photo to get an AI-assisted assessment.', view: AppView.DISEASE_DETECTION, Icon: Camera },
   { name: 'Ask Krishi AI', description: 'Ask questions about crops and agricultural practices.', view: AppView.ADVISORY, Icon: MessageCircle },
   { name: 'Explore markets', description: 'Find market resources and manage your price watchlist.', view: AppView.MARKET, Icon: BarChart3 },
+  { name: 'Local weather', description: 'Get a sourced forecast for your city or district.', view: AppView.WEATHER, Icon: CloudSun },
   { name: 'Manage my farm', description: 'Add crops and track planting information.', view: AppView.FARM_MANAGEMENT, Icon: Sprout },
   { name: 'Scan history', description: 'Review assessments previously saved on this device.', view: AppView.HISTORY, Icon: BookOpen },
   { name: 'Join the community', description: 'Ask questions and discuss crops with other members.', view: AppView.COMMUNITY, Icon: Users },
