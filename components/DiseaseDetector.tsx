@@ -138,7 +138,7 @@ const DiseaseDetector: React.FC<{ setView: (view: AppView) => void }> = ({ setVi
               </div>
             </motion.button>
 
-            <button className="flex flex-col items-center gap-2 group">
+            <button onClick={() => cameraInputRef.current?.click()} className="flex flex-col items-center gap-2 group">
               <div className="w-12 h-12 rounded-xl bg-black/40 backdrop-blur-md border border-white/20 flex items-center justify-center text-white group-hover:bg-black/60 transition-all">
                 <ScanLine size={20} />
               </div>
