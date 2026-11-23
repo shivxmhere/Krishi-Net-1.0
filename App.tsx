@@ -8,6 +8,8 @@ import MarketPrices from './components/MarketPrices';
 import FarmManager from './components/FarmManager';
 import History from './components/History';
 import Settings from './components/Settings';
+import Community from './components/Community';
+import Marketplace from './components/Marketplace';
 import Auth from './components/Auth';
 import Onboarding from './components/Onboarding';
 import Welcome from './components/Welcome';
@@ -77,6 +79,10 @@ function AppContent() {
         return <FarmManager />;
       case AppView.HISTORY:
         return <History />;
+      case AppView.COMMUNITY:
+        return <Community />;
+      case AppView.MARKETPLACE:
+        return <Marketplace />;
       case AppView.SETTINGS:
         return <Settings onUpdateUser={handleUserUpdate} />;
       default:
