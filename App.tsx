@@ -68,7 +68,7 @@ function AppContent() {
       case AppView.DASHBOARD:
         return <Dashboard setView={setView} />;
       case AppView.DISEASE_DETECTION:
-        return <DiseaseDetector />;
+        return <DiseaseDetector setView={setView} />;
       case AppView.ADVISORY:
         return <AdvisoryChat />;
       case AppView.MARKET:
