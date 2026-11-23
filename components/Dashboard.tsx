@@ -1,7 +1,7 @@
 import React from 'react';
 import { AppView } from '../types';
 import { getCurrentUser } from '../services/authService';
-import { Activity, Camera, CloudSun, Sprout, MessageCircle, BarChart3, BookOpen, Settings, ArrowRight } from 'lucide-react';
+import { Activity, Camera, CloudSun, Sprout, MessageCircle, BarChart3, BookOpen, Settings, ArrowRight, Users, Store } from 'lucide-react';
 
 interface DashboardProps { setView: (view: AppView) => void; }
 
@@ -11,6 +11,8 @@ const actions = [
   { name: 'Explore markets', description: 'Find market resources and manage your price watchlist.', view: AppView.MARKET, Icon: BarChart3 },
   { name: 'Manage my farm', description: 'Add crops and track planting information.', view: AppView.FARM_MANAGEMENT, Icon: Sprout },
   { name: 'Scan history', description: 'Review assessments previously saved on this device.', view: AppView.HISTORY, Icon: BookOpen },
+  { name: 'Join the community', description: 'Ask questions and discuss crops with other members.', view: AppView.COMMUNITY, Icon: Users },
+  { name: 'Produce marketplace', description: 'List produce, discover sellers and send enquiries.', view: AppView.MARKETPLACE, Icon: Store },
   { name: 'My settings', description: 'Update your profile and language preferences.', view: AppView.SETTINGS, Icon: Settings },
 ];
 
