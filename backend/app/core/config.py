@@ -4,7 +4,7 @@ Reads from environment variables or .env file.
 """
 
 from pydantic_settings import BaseSettings
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from typing import List, Optional, Union
 import os
 import json
@@ -12,6 +12,7 @@ import json
 
 class Settings(BaseSettings):
     # ── Project ──
+    ENVIRONMENT: str = "development"
     PROJECT_NAME: str = "Krishi-Net API"
     VERSION: str = "1.0.0"
     API_V1_STR: str = "/api/v1"
@@ -26,7 +27,7 @@ class Settings(BaseSettings):
 
     # ── CORS ──
     # Allow all origins for production ease (Vercel, Mobile, etc.)
-    BACKEND_CORS_ORIGINS: Union[List[str], str] = ["*"]
+    BACKEND_CORS_ORIGINS: Union[List[str], str] = ["http://localhost:5173"]
 
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod
@@ -36,6 +37,17 @@ class Settings(BaseSettings):
         elif isinstance(v, str) and v.startswith("["):
             return json.loads(v)
         return v
+
+    @model_validator(mode="after")
+    def validate_production_security(self):
+        if self.ENVIRONMENT.lower() == "production":
+            if self.SECRET_KEY.startswith("CHANGE_ME") or len(self.SECRET_KEY) < 32:
+                raise ValueError("Production SECRET_KEY must be a securely generated secret of at least 32 characters")
+            if "*" in self.BACKEND_CORS_ORIGINS:
+                raise ValueError("Production CORS origins must be explicitly allowlisted")
+            if self.DATABASE_URL.startswith("sqlite"):
+                raise ValueError("Production requires a persistent externally managed database")
+        return self
 
     # ── Groq AI ──
     GROQ_API_KEY: Optional[str] = None
