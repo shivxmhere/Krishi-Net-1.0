@@ -18,7 +18,7 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }) => {
   const user = getCurrentUser();
   const { theme, toggleTheme } = useTheme();
-  const { t } = useLanguage();
+  const { t, language, setLanguage } = useLanguage();
   const { isListening, startListening, stopListening, lastCommand } = useVoice();
 
   // Voice Command Logic
@@ -114,7 +114,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }) => {
             <div className="w-10 h-10 bg-emerald-500 rounded-lg flex items-center justify-center text-white shadow-sm">
               <Icons.Logo size={24} className="text-white" />
             </div>
-            <h1 className="text-xl font-extrabold tracking-tight text-gray-900">AgriScan AI</h1>
+            <h1 className="text-xl font-extrabold tracking-tight text-gray-900">Krishi-Net</h1>
           </motion.div>
         </div>
 
@@ -141,7 +141,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }) => {
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
               <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Online</span>
             </div>
-            <span className="text-[10px] font-bold text-gray-400">v2.4</span>
+            <span className="text-[10px] font-bold text-gray-400">Krishi-Net</span>
           </div>
         </div>
 
@@ -188,10 +188,12 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }) => {
               <Icons.Language size={14} />
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <button className="py-2 rounded-lg border border-gray-100 text-xs font-bold text-gray-500 hover:border-emerald-200 hover:text-emerald-600 transition-all">English</button>
-              <button className="py-2 rounded-lg bg-emerald-100 text-emerald-700 text-xs font-bold transition-all">हिन्दी</button>
-              <button className="py-2 rounded-lg border border-gray-100 text-xs font-bold text-gray-500 hover:border-emerald-200 hover:text-emerald-600 transition-all">मराठी</button>
-              <button className="py-2 rounded-lg border border-gray-100 text-xs font-bold text-gray-500 hover:border-emerald-200 hover:text-emerald-600 transition-all">தமிழ்</button>
+              {([['en', 'English'], ['hi', 'हिन्दी'], ['ur', 'اردو']] as const).map(([code, label]) => (
+                <button key={code} onClick={() => setLanguage(code)} aria-pressed={language === code}
+                  className={`py-2 rounded-lg text-xs font-bold transition-all ${language === code ? 'bg-emerald-100 text-emerald-700' : 'border border-gray-100 text-gray-500 hover:border-emerald-200'}`}>
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
 
