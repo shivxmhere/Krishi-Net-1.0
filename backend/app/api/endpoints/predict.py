@@ -10,6 +10,9 @@ import base64
 import traceback
 import httpx
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
+from PIL import Image, UnidentifiedImageError
+import io
+from app.core.security import get_current_user
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -31,6 +34,7 @@ async def predict_disease(
     file: UploadFile = File(...),
     crop: str = Form(""),
     db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
     """
     Disease Prediction Engine.
@@ -39,7 +43,14 @@ async def predict_disease(
     print(f"📸 Received Analysis Request | Crop Context: {crop or 'None'}")
 
     # 1. Read Data
-    image_bytes = await file.read()
+    image_bytes = await file.read(8 * 1024 * 1024 + 1)
+    if len(image_bytes) > 8 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Image must be smaller than 8 MB")
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as img:
+            img.verify()
+    except (UnidentifiedImageError, OSError, ValueError):
+        raise HTTPException(status_code=400, detail="Please upload a valid image")
     if not image_bytes:
         print("❌ Error: Received empty file")
         raise HTTPException(status_code=400, detail="Empty file")
@@ -77,7 +88,7 @@ async def predict_disease(
     STRICT JSON STRUCTURE:
     {{
         "diseaseName": "Final diagnosis or 'Healthy [Crop]'",
-        "confidence": 0.95,
+        "confidence": 0.0,
         "severity": "Low" | "Medium" | "High" | "Healthy",
         "description": "Short summary of symptoms found.",
         "treatment": ["Immediate chemical/physical action step 1", "step 2"],
@@ -88,6 +99,8 @@ async def predict_disease(
     }}
 
     INSTRUCTIONS:
+    - If severity cannot be determined from the image, use Unknown. Do not claim calibrated probabilities.
+    - Do not provide specific pesticide prescriptions without verified crop- and region-specific evidence.
     - If healthy, set severity to 'Healthy'.
     - Treatments must be relevant to Indian agriculture.
     - Return ONLY the JSON object. No conversation. No markdown blocks.
