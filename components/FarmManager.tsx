@@ -20,7 +20,7 @@ const FarmManager: React.FC = () => {
   const fetchCrops = async () => {
     try {
       const token = localStorage.getItem('krishi_net_token');
-      if (!token) return;
+      if (!token) { setError('Please sign in to load your crops.'); return; }
       const response = await fetch(`${API_URL}/api/v1/crops/`, { headers: { 'Authorization': `Bearer ${token}` } });
       if (response.ok) {
         const data = await response.json();
@@ -34,13 +34,18 @@ const FarmManager: React.FC = () => {
           status: c.status
         }));
         setCrops(mappedCrops);
-      }
-    } catch (err) { console.error("Failed to fetch crops", err); }
+      } else { setError('Could not load your crops. Please refresh or sign in again.'); }
+    } catch (err) { setError('Cannot connect to the farm service. Check your connection.'); }
     finally { setLoading(false); }
   };
 
   const handleAdd = async () => {
-    if (newCrop.name && newCrop.area) {
+    if (!newCrop.name?.trim() || !newCrop.area || Number(newCrop.area) <= 0) {
+      setError('Enter a crop name and an area greater than zero.');
+      return;
+    }
+    setError('');
+    {
       try {
         const token = localStorage.getItem('krishi_net_token');
         const payload = {
@@ -59,7 +64,7 @@ const FarmManager: React.FC = () => {
           await fetchCrops();
           setIsAdding(false);
           setNewCrop({});
-        } else { setError("Failed to save crop"); }
+        } else { setError(`Could not save crop (HTTP ${response.status}). Please try again.`); }
       } catch (err) { setError("Network error saving crop"); }
     }
   };
@@ -68,9 +73,11 @@ const FarmManager: React.FC = () => {
     if (confirm('Delete this crop?')) {
       try {
         const token = localStorage.getItem('krishi_net_token');
-        await fetch(`${API_URL}/api/v1/crops/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+        const response = await fetch(`${API_URL}/api/v1/crops/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         setCrops(crops.filter(c => c.id !== id));
-      } catch (err) { console.error("Failed to delete", err); }
+        setError('');
+      } catch (err) { setError("Could not delete crop. It remains in your farm."); }
     }
   };
 
@@ -127,6 +134,7 @@ const FarmManager: React.FC = () => {
         )}
       </AnimatePresence>
 
+      {error && !isAdding && <div role="alert" className="rounded-xl bg-red-50 border border-red-200 text-red-700 p-4">{error}</div>}
       {loading ? (
         <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-harvest-green" /></div>
       ) : crops.length === 0 && !isAdding ? (
