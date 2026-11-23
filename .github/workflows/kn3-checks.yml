@@ -1,0 +1,50 @@
+name: Krishi-Net checks
+on:
+  pull_request:
+  push:
+    branches:
+      - develop/krishi-net-3.0
+      - feature/kn3-functional-foundation
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Production build
+        run: npm run build
+      - name: Check for forbidden client-side secret injection
+        run: |
+          if grep -n 'process.env.GEMINI_API_KEY\|process.env.API_KEY' vite.config.ts; then
+            echo 'Client-side secret injection detected'
+            exit 1
+          fi
+
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install backend dependencies
+        run: pip install -r requirements.txt pytest
+      - name: Compile Python sources
+        run: python -m compileall -q app
+      - name: Test backend
+        run: python -m pytest -q
