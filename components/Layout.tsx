@@ -7,7 +7,7 @@ import { useVoice } from '../contexts/VoiceContext';
 // Background removed for simple UI
 import { Icons } from './ui/IconSystem';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, X, Sun, Moon, LogOut } from 'lucide-react'; // Keep utility icons from Lucide for now
+import { Mic, X, Sun, Moon, LogOut, Users, Store } from 'lucide-react'; // Keep utility icons from Lucide for now
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -41,6 +41,10 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }) => {
       crop: AppView.FARM_MANAGEMENT,
       history: AppView.HISTORY,
       record: AppView.HISTORY,
+      community: AppView.COMMUNITY,
+      forum: AppView.COMMUNITY,
+      marketplace: AppView.MARKETPLACE,
+      sell: AppView.MARKETPLACE,
       setting: AppView.SETTINGS
     };
 
@@ -65,6 +69,8 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }) => {
     { id: AppView.MARKET, label: t('market'), Icon: Icons.Market },
     { id: AppView.FARM_MANAGEMENT, label: t('myFarm'), Icon: Icons.Farm },
     { id: AppView.HISTORY, label: "History", Icon: Icons.History },
+    { id: AppView.COMMUNITY, label: "Community", Icon: Users },
+    { id: AppView.MARKETPLACE, label: "Marketplace", Icon: Store },
     { id: AppView.SETTINGS, label: t('settings'), Icon: Icons.Profile },
   ];
 
