@@ -7,6 +7,17 @@ on:
       - feature/kn3-functional-foundation
 
 jobs:
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject provider keys in tracked current files
+        run: |
+          if git grep -qE 'AIza[[:alnum:]_-]{25,}' -- .; then
+            echo 'Potential provider API key found in tracked source. Remove it and rotate the credential.'
+            exit 1
+          fi
+
   frontend:
     runs-on: ubuntu-latest
     timeout-minutes: 15
