@@ -1,239 +1,100 @@
-# 🌾 Krishi-Net: Mission-Critical AI Agricultural Platform
+# 🌾 Krishi-Net
 
-<div align="center">
+**Agricultural intelligence, farm tools, community and produce discovery.**  
+Built by **Team TechLions**.
 
-![Krishi-Net Banner](https://via.placeholder.com/1200x400/064e3b/ffffff?text=KRISHI-NET+|+MISSION-CRITICAL+AGRI-AI+ECOSYSTEM)
+Krishi-Net is a developing AgriTech platform for farmers and the wider agricultural ecosystem. It combines a React web application with a FastAPI backend and a growing set of authenticated, database-backed features.
 
-[![Live App](https://img.shields.io/badge/Live_App-Visit_Now-success?style=for-the-badge&logo=vercel)](https://krishi-net-1-0.vercel.app)
-[![API Status](https://img.shields.io/badge/API_Status-Online-green?style=for-the-badge&logo=render)](https://krishi-net-1-0-backend.onrender.com/docs)
-[![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](#)
+> **Status: Development beta — not production-certified.** The earlier README advertised high ML accuracy, guaranteed uptime and zero-cost services without reproducible supporting benchmarks. Those claims are withdrawn pending independent measurement.
 
-```text
-  _  __       _     _     _       _   _      _   
- | |/ /      (_)   | |   (_)     | \ | |    | |  
- | ' / _ __ _ ___| |__  _ ______|  \| | ___| |_ 
- |  < | '__| / __| '_ \| |______| . ` |/ _ \ __|
- | . \| |  | \__ \ | | | |      | |\  |  __/ |_ 
- |_|\_\_|  |_|___/_| |_|_|      |_| \_|\___|\__|
-      MISSION-CRITICAL AGRICULTURE ECOSYSTEM
+## What works in the development branch
+
+| Feature | Development status |
+|---|---|
+| Account signup/login | Server-backed password auth; no browser-only offline credentials |
+| Farm management | API-backed crop create/list/delete; authentication required |
+| AI advisory chat | Live provider integration when `GROQ_API_KEY` is configured; responses are unverified |
+| Disease image analysis | Authenticated AI-assisted analysis with 8 MB upload limit; local ML model optional |
+| Market watchlist | Browser-local add/search/sort/remove; no automatic price alerts |
+| Market information | Links to government sources; **verified live price ingestion not built** |
+| Community | Authenticated discussion posts, replies and author-only deletion |
+| Produce marketplace | Authenticated listings, enquiries, seller inbox and author-only closure |
+| Preferences | Language selection and server-backed name/location updates |
+| Scan history | Saved locally in the browser |
+
+**Still needed before launch:** email/phone ownership verification, strong rate limiting, production-grade session cookies and CSRF measures, database migrations/backups, community moderation, user verification, live mandi-data licensing/ingestion, security testing, agricultural ML validation and real-world field trials.
+
+## Repository
+
+```
+components/                 # React screens and UI
+contexts/                   # Language, theme and voice state
+services/                   # API integrations and local scan history
+backend/app/api/endpoints/  # FastAPI routes
+backend/app/models/         # SQLAlchemy entities
+backend/tests/              # Backend regressions
+.github/workflows/          # CI checks
+docs/audit/                 # Krishi-Net audit baseline
 ```
 
-</div>
+## Run locally on Windows
 
----
+Prerequisites: Node.js 22+, Python 3.11, Git.
 
-## 📋 Table of Contents
-- [Problem Statement](#-problem-statement)
-- [System Architecture](#-system-architecture)
-- [Technology Stack](#-technology-stack)
-- [Mission-Critical Design](#-mission-critical-design)
-- [Performance Metrics](#-performance-metrics)
-- [Getting Started](#-getting-started)
-- [Roadmap](#-roadmap)
-- [Meet the Team](#-meet-the-team)
-- [Project Statistics](#-project-statistics)
-
----
-
-## 🚨 Problem Statement
-
-Agriculture in the 21st century faces unprecedented challenges. Small-scale farmers are the most vulnerable, lacking access to high-end diagnostic tools and real-time market insights.
-
-| Metric | Impact | Detail |
-| :--- | :--- | :--- |
-| **Crop Loss** | 🍎 30-40% | Annual global harvest lost to pests and diseases. |
-| **Market Gap** | 📉 25% | Revenue lost due to lack of real-time Mandi pricing. |
-| **Tech Gap** | 📱 85% | Farmers without access to specialized agricultural AI. |
-
-**Krishi-Net** bridges this gap by providing a fail-safe, high-precision AI companion that works on any smartphone, anywhere.
-
----
-
-## 🏗️ System Architecture
-
-Krishi-Net is built on a distributed micro-service architecture designed for high availability.
-
-### High-Level Flow
-```mermaid
-graph TD
-    A[Farmer / User] -->|Capture Leaf| B[React Frontend]
-    B -->|Encrypted Image| C{Traffic Router}
-    C -->|Fast Path| D[Local Edge ML]
-    C -->|Deep Analysis| E[FastAPI Backend]
-    E -->|Key Rotation| F[Gemini AI Pool]
-    F -->|Diagnosis| E
-    D -->|Quick Diagnosis| B
-    E -->|Complete Advisory| B
-    B -->|Notification| A
-```
-
----
-
-## 🛠️ Technology Stack
-
-We use over 20+ state-of-the-art technologies to ensure Krishi-Net remains **"Active & Unstoppable"**.
-
-### **Frontend Architecture**
-![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
-![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
-![Framer Motion](https://img.shields.io/badge/Framer_Motion-0055FF?style=for-the-badge&logo=framer&logoColor=white)
-![Lucide](https://img.shields.io/badge/Lucide_Icons-FF6F61?style=for-the-badge)
-![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)
-
-### **Backend & AI Core**
-![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)
-![Python](https://img.shields.io/badge/Python_3.10-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![Pydantic](https://img.shields.io/badge/Pydantic-E92063?style=for-the-badge)
-![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-D71F00?style=for-the-badge)
-![SQLite](https://img.shields.io/badge/SQLite-07405E?style=for-the-badge&logo=sqlite&logoColor=white)
-![Gemini AI](https://img.shields.io/badge/Google_Gemini-8E75B2?style=for-the-badge&logo=google&logoColor=white)
-![TensorFlow](https://img.shields.io/badge/TensorFlow-FF6F00?style=for-the-badge&logo=tensorflow&logoColor=white)
-
-### **Infrastructure & Deployment**
-![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
-![Git](https://img.shields.io/badge/Git-F05032?style=for-the-badge&logo=git&logoColor=white)
-![Postman](https://img.shields.io/badge/Postman-FF6C37?style=for-the-badge&logo=postman&logoColor=white)
-![Windows](https://img.shields.io/badge/Windows_11-0078D6?style=for-the-badge&logo=windows&logoColor=white)
-
----
-
-## 🛡️ Mission-Critical Design
-
-Our architecture includes a **Self-Healing AI Loop** that ensures 99.9% uptime for diagnostic services.
-
-### AI Rotation Logic
-```mermaid
-stateDiagram-v2
-    [*] --> RequestAI
-    RequestAI --> CheckKeyLimit
-    CheckKeyLimit --> ActiveKey: Key Available
-    CheckKeyLimit --> KeyExhausted: 429 Quota Error
-    KeyExhausted --> RotateKey: Switch to Next key in Pool
-    RotateKey --> CheckKeyLimit
-    ActiveKey --> ProcessDiagnosis
-    ProcessDiagnosis --> [*]
-    ProcessDiagnosis --> Error: Model 404/502
-    Error --> ModelDiscovery: Search for Gemini 2.0/1.5
-    ModelDiscovery --> ProcessDiagnosis
-```
-
----
-
-## 📈 Performance Metrics
-
-### Reliability Benchmarks
-| Feature | Accuracy | Latency | Fallback Mode |
-| :--- | :--- | :--- | :--- |
-| **Disease Detection** | ✅ 97.4% | < 2.3s | Local Edge ML |
-| **Market Analysis** | ✅ 99.1% | < 1.5s | Static Mandi Data |
-| **Agricultural Chat** | ✅ 98.2% | < 4.0s | Pre-vetted Advisory |
-
-### Cost Comparison (Per 1000 Scans)
-| Platform | Cost ($/1k) | Scaling |
-| :--- | :--- | :--- |
-| Standard Cloud AI | $45.00 | Linear |
-| **Krishi-Net v1.2** | **$0.00** | **Unlimited (Key Pool)** |
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-- Node.js v18+
-- Python 3.10+
-- Docker (Optional)
-
-### 1. Clone the Project
-```bash
-git clone https://github.com/shivam-singh/Krishi-Net.git
+```powershell
+git clone https://github.com/shivxmhere/Krishi-Net-1.0.git
 cd Krishi-Net-1.0
-```
+git switch feature/kn3-functional-foundation
 
-### 2. Frontend Setup
-```bash
-npm install
-npm run dev
-```
-
-### 3. Backend Setup
-```bash
+Copy-Item .env.example .env
 cd backend
-python -m venv venv
-source venv/bin/activate  # .\venv\Scripts\activate on Windows
-pip install -r requirements.txt
+Copy-Item .env.example .env
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
 python -m uvicorn app.main:app --reload
 ```
 
----
+Open a second terminal from the repo root:
 
-## 🗺️ Roadmap (2025 - 2027)
-
-```mermaid
-timeline
-    title Krishi-Net Evolution
-    2025 Q1-Q2 : Foundation : Multi-Key Rotation Pipeline : Disease Detection v1.0 : Hybrid Mobile App
-    2025 Q3-Q4 : Expansion : Real-time Satellite Crop Monitoring : Community Expert Forum : Multilingual Voice Support
-    2026 : Intelligence : Predictive Pest Outbreak Alerts : Smart Irrigation Integration : Blockchain Mandi Receipts
-    2027 : Global : Decentralized Agri-Lending : Pan-India Logistics Support : Autonomous Drone Spraying API
+```powershell
+npm ci
+npm run dev
 ```
 
----
+Frontend: `http://localhost:5173` — API: `http://localhost:8000` — API health: `http://localhost:8000/health`
 
-## 👥 Meet the Team
+To enable hosted AI features, configure a **new private** `GROQ_API_KEY` only in `backend/.env` or the deployment secret manager. Never put a provider secret in a frontend `VITE_*` variable or commit it to Git.
 
-<div align="center">
+## Verify
 
-| Name | Role | Core Expertise |
-| :--- | :--- | :--- |
-| **Shivam Singh** | 🏛️ Lead Architect & AI Engineer | Generative AI, System Resilience, Full-Stack Optimization |
-| **Mohit Pandey** | 🎨 Frontend Lead & UX Designer | Premium UI Design, Framer Motion, Mobile Experience |
-| **Aditya Ojha** | ⚙️ Backend & Database Architect | High-Concurrency APIs, SQLite/PostgreSQL, Auth Security |
-| **Prabhav Sagar** | 🧠 ML Engineer & Data Scientist | Computer Vision, Plant Pathology, Edge ML Performance |
-
-</div>
-
----
-
-## 📊 Project Statistics
-
-```text
-┌──────────────────────────────────────────────────────────┐
-│              KRISHI-NET DASHBOARD v1.2                   │
-├──────────────────────────────────────────────────────────┤
-│ Components: 13+ React Widgets | Backend: FastAPI Core     │
-│ AI Reliability: 99.9%         | Latency: < 2.5s (Avg)     │
-│ Security: JWT-HS256           | Key Pool: 4 Active Keys   │
-└──────────────────────────────────────────────────────────┘
+```powershell
+npm ci
+npx tsc --noEmit
+npm run build
+cd backend
+python -m compileall -q app
+python -m pytest -q
 ```
 
-### Project Structure (Trees)
-```text
-├── backend/                  # FastAPI AI Engine
-│   ├── app/
-│   │   ├── api/              # Rotation & Rotation Endpoints
-│   │   ├── core/             # Base Infrastructure
-│   │   └── services/         # ML & Advice Services
-├── src/                      # Premium React Client
-│   ├── components/           # Glassmorphism UI Components
-│   ├── contexts/             # Global State (Theme/Lang)
-│   └── services/             # Frontend AI Rotation Hub
-```
+The GitHub Actions workflow runs frontend typecheck/build, Python compilation/tests and a current-file API-key pattern guard.
 
----
+## Production deployment requirements
 
-## 🤝 Contributing & Contact
+- Use a real managed PostgreSQL database and `DATABASE_URL` secret.
+- Configure `ENVIRONMENT=production`, a cryptographically random `SECRET_KEY` (32+ characters), and explicitly allowlisted `BACKEND_CORS_ORIGINS`.
+- Perform a reviewed database migration/backup plan **before** deploying against real user records.
+- Rotate/revoke any credential found in past public commits. Deleting it from a file does not erase Git history.
+- Do not deploy this beta until user verification, abuse controls and manual browser tests are complete.
 
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md).
+## Safety and limitations
 
-**Maintained by Team Techlions**
-- **Email:** shivuladuushivam@gmail.com
-- **Institution:** IIT Patna
-- **Location:** Bihar, India
+Krishi-Net is not a substitute for a qualified agronomist. AI diagnosis and treatment suggestions may be inaccurate. Do not apply chemicals solely on generated advice; check applicable labels and seek local expert guidance. Marketplace listings are user-entered offers, not verified produce quality, price quotes or protected transactions.
 
-*"Cultivating Tech. Seeding the Future."*
+Community and marketplace modules are small MVPs: no payments, messaging delivery guarantees, supplier verification, automated moderation or full privacy-compliance program exist yet.
 
----
+## Development workflow
 
-<div align="center">
-© 2025 Krishi-Net Project. Built with ❤️ for Indian Farmers.
-</div>
+Work from feature branches and open PRs against `develop/krishi-net-3.0`. The public `main` branch and existing live site remain unchanged until an approved, tested release.
+
+**Team TechLions — Cultivating Tech. Seeding the Future.**
