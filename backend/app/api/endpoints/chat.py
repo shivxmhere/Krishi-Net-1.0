@@ -17,7 +17,7 @@ CHAT_MODEL = "llama-3.3-70b-versatile"
 
 
 class Message(BaseModel):
-    role: str = Field(pattern='^(user|model)
+    role: str = Field(pattern="^(user|model)\\Z")
     text: str = Field(min_length=1, max_length=2000)
 
 
