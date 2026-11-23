@@ -9,6 +9,7 @@ import FarmManager from './components/FarmManager';
 import History from './components/History';
 import Settings from './components/Settings';
 import Community from './components/Community';
+import Weather from './components/Weather';
 import Marketplace from './components/Marketplace';
 import Auth from './components/Auth';
 import Onboarding from './components/Onboarding';
@@ -79,6 +80,8 @@ function AppContent() {
         return <FarmManager />;
       case AppView.HISTORY:
         return <History />;
+      case AppView.WEATHER:
+        return <Weather />;
       case AppView.COMMUNITY:
         return <Community />;
       case AppView.MARKETPLACE:
