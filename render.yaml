@@ -11,10 +11,12 @@ services:
     autoDeploy: true
     envVars:
       - key: DATABASE_URL
-        value: sqlite:///./krishi_net.db
+        sync: false
+      - key: ENVIRONMENT
+        value: production
       - key: SECRET_KEY
         generateValue: true
       - key: GROQ_API_KEY
         sync: false
       - key: BACKEND_CORS_ORIGINS
-        value: '["*"]'
+        value: '["https://krishi-net-1-0.vercel.app"]'
