@@ -3,12 +3,13 @@ import { DiseaseAnalysis, WeatherData, MarketPrice, Crop, NearbyMarket } from ".
 // API Configuration — all AI calls now go through the backend (Groq-powered)
 const getEnvVar = (name: string) => (import.meta as any).env[name] || "";
 const API_URL = getEnvVar('VITE_API_URL') || 'http://localhost:8000';
+const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem('krishi_net_token') || ''}` });
 
 // Generic AI text generation via backend
 const callAI = async (prompt: string, jsonMode: boolean = false): Promise<string> => {
   const response = await fetch(`${API_URL}/api/v1/ai/generate`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ prompt, json_mode: jsonMode, max_tokens: 1024 }),
   });
   if (!response.ok) throw new Error(`AI error: ${response.statusText}`);
@@ -29,6 +30,7 @@ export const analyzePlantImage = async (imageFile: File | Blob, cropContext?: st
     const response = await fetch(`${API_URL}/api/v1/predict/`, {
       method: 'POST',
       body: formData,
+      headers: authHeaders(),
       signal: controller.signal,
     });
 
@@ -82,51 +84,12 @@ export const getWeatherInsight = async (weatherSummary: string): Promise<string>
   }
 };
 
+/** Disabled until observable, dated mandi data is available. */
 export const getSellOrHoldAdvisory = async (
-  crop: string,
-  price: number,
-  trend: string,
-  location: string
+  _crop: string, _price: number, _trend: string, _location: string
 ): Promise<{ recommendation: 'SELL' | 'HOLD', reason: string }> => {
-  try {
-    const prompt = `
-      I am a farmer in ${location}.
-      Crop: ${crop}
-      Current Price: ₹${price}/Quintal
-      Market Trend: ${trend}
-      Should I SELL now or HOLD for better prices? 
-      Provide a JSON response with "recommendation" (SELL or HOLD) and "reason" (max 20 words).
-    `;
-
-    const result = await callAI(prompt, true);
-    return result ? JSON.parse(result) : { recommendation: 'HOLD', reason: 'Market data stable.' };
-  } catch (error) {
-    return { recommendation: 'HOLD', reason: 'Analyzing market pulse...' };
-  }
+  throw new Error('Market forecasts are unavailable until a verified data feed is connected.');
 };
 
-export const getLocationBasedData = async (location: string): Promise<LocationData | null> => {
-  try {
-    const prompt = `
-      Act as a real-time agricultural data engine for India.
-      Location: ${location}. Date: ${new Date().toLocaleDateString()}.
-      1. 5 relevant crops in ${location}.
-      2. Nearest Mandi prices.
-      3. 3 Nearby Mandis with distance.
-      4. Current season crops for this district.
-      5. Weather forecast.
-      Output strictly valid JSON with this structure:
-      {
-        "marketPrices": [{"crop": "string", "mandi": "string", "price": number, "change": number, "trend": "up/down/stable"}],
-        "activeCrops": [{"name": "string", "status": "string"}],
-        "nearbyMarkets": [{"name": "string", "distance": "string", "priceDiff": number}],
-        "weather": {"temp": number, "condition": "string", "humidity": number, "windSpeed": number, "forecast": [{"day": "string", "temp": number, "rainChance": number}, {"day": "string", "temp": number, "rainChance": number}, {"day": "string", "temp": number, "rainChance": number}]}
-      }
-    `;
-
-    const result = await callAI(prompt, true);
-    return result ? JSON.parse(result) : null;
-  } catch (error) {
-    return null;
-  }
-};
+/** Do not ask an LLM to fabricate live prices, mandis, or weather observations. */
+export const getLocationBasedData = async (_location: string): Promise<LocationData | null> => null;
