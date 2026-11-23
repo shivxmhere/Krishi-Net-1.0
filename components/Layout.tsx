@@ -7,7 +7,7 @@ import { useVoice } from '../contexts/VoiceContext';
 // Background removed for simple UI
 import { Icons } from './ui/IconSystem';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, X, Sun, Moon, LogOut } from 'lucide-react'; // Keep utility icons from Lucide for now
+import { Mic, X, Sun, Moon, LogOut, Users, Store, Menu } from 'lucide-react'; // Keep utility icons from Lucide for now
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -17,8 +17,9 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }) => {
   const user = getCurrentUser();
+  const [moreOpen, setMoreOpen] = React.useState(false);
   const { theme, toggleTheme } = useTheme();
-  const { t } = useLanguage();
+  const { t, language, setLanguage } = useLanguage();
   const { isListening, startListening, stopListening, lastCommand } = useVoice();
 
   // Voice Command Logic
@@ -36,11 +37,16 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }) => {
       chat: AppView.ADVISORY,
       ask: AppView.ADVISORY,
       market: AppView.MARKET,
+      weather: AppView.WEATHER,
       price: AppView.MARKET,
       farm: AppView.FARM_MANAGEMENT,
       crop: AppView.FARM_MANAGEMENT,
       history: AppView.HISTORY,
       record: AppView.HISTORY,
+      community: AppView.COMMUNITY,
+      forum: AppView.COMMUNITY,
+      marketplace: AppView.MARKETPLACE,
+      sell: AppView.MARKETPLACE,
       setting: AppView.SETTINGS
     };
 
@@ -64,7 +70,10 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }) => {
     { id: AppView.ADVISORY, label: t('advisory'), Icon: Icons.Advisory },
     { id: AppView.MARKET, label: t('market'), Icon: Icons.Market },
     { id: AppView.FARM_MANAGEMENT, label: t('myFarm'), Icon: Icons.Farm },
+    { id: AppView.WEATHER, label: 'Weather', Icon: Icons.Weather },
     { id: AppView.HISTORY, label: "History", Icon: Icons.History },
+    { id: AppView.COMMUNITY, label: "Community", Icon: Users },
+    { id: AppView.MARKETPLACE, label: "Marketplace", Icon: Store },
     { id: AppView.SETTINGS, label: t('settings'), Icon: Icons.Profile },
   ];
 
@@ -114,7 +123,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }) => {
             <div className="w-10 h-10 bg-emerald-500 rounded-lg flex items-center justify-center text-white shadow-sm">
               <Icons.Logo size={24} className="text-white" />
             </div>
-            <h1 className="text-xl font-extrabold tracking-tight text-gray-900">AgriScan AI</h1>
+            <h1 className="text-xl font-extrabold tracking-tight text-gray-900">Krishi-Net</h1>
           </motion.div>
         </div>
 
@@ -141,7 +150,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }) => {
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
               <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Online</span>
             </div>
-            <span className="text-[10px] font-bold text-gray-400">v2.4</span>
+            <span className="text-[10px] font-bold text-gray-400">Krishi-Net</span>
           </div>
         </div>
 
@@ -188,10 +197,12 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }) => {
               <Icons.Language size={14} />
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <button className="py-2 rounded-lg border border-gray-100 text-xs font-bold text-gray-500 hover:border-emerald-200 hover:text-emerald-600 transition-all">English</button>
-              <button className="py-2 rounded-lg bg-emerald-100 text-emerald-700 text-xs font-bold transition-all">हिन्दी</button>
-              <button className="py-2 rounded-lg border border-gray-100 text-xs font-bold text-gray-500 hover:border-emerald-200 hover:text-emerald-600 transition-all">मराठी</button>
-              <button className="py-2 rounded-lg border border-gray-100 text-xs font-bold text-gray-500 hover:border-emerald-200 hover:text-emerald-600 transition-all">தமிழ்</button>
+              {([['en', 'English'], ['hi', 'हिन्दी'], ['ur', 'اردو']] as const).map(([code, label]) => (
+                <button key={code} onClick={() => setLanguage(code)} aria-pressed={language === code}
+                  className={`py-2 rounded-lg text-xs font-bold transition-all ${language === code ? 'bg-emerald-100 text-emerald-700' : 'border border-gray-100 text-gray-500 hover:border-emerald-200'}`}>
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -245,9 +256,29 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }) => {
         </div>
       </main>
 
+      {/* Mobile more menu for the full navigation. */}
+      {moreOpen && (
+        <div className="md:hidden fixed inset-0 z-50 bg-black/40 flex items-end" onClick={() => setMoreOpen(false)}>
+          <div className="w-full rounded-t-3xl bg-white dark:bg-gray-800 p-5 pb-28 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-extrabold dark:text-white">All Krishi-Net tools</h2>
+              <button aria-label="Close menu" onClick={() => setMoreOpen(false)} className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700"><X size={20}/></button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {navItems.slice(4).map(item => (
+                <button key={item.id} onClick={() => { setView(item.id); setMoreOpen(false); }}
+                  className="flex items-center gap-3 rounded-xl border dark:border-gray-700 p-3 text-sm font-semibold dark:text-white">
+                  <item.Icon size={20} className="text-emerald-600"/>{item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Mobile Bottom Nav */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400 flex justify-between px-6 py-3">
-        {navItems.slice(0, 5).map((item) => {
+        {navItems.slice(0, 4).map((item) => {
           const isActive = currentView === item.id;
           return (
             <button
@@ -263,6 +294,12 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }) => {
             </button>
           )
         })}
+        <button type="button" aria-label="Open more tools" aria-expanded={moreOpen}
+          onClick={() => setMoreOpen(true)}
+          className="flex flex-col items-center gap-1 text-gray-600 dark:text-gray-300">
+          <Menu size={24}/>
+          <span className="text-[10px] font-medium">More</span>
+        </button>
       </nav>
     </div>
   );

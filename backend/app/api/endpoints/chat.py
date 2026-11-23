@@ -4,10 +4,11 @@ Chat endpoint using Groq AI for fast, persona-based agricultural advice.
 
 import json
 import httpx
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, Depends
+from pydantic import BaseModel, Field
 from typing import List, Optional
 from app.core.config import settings
+from app.core.security import get_current_user
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
@@ -16,19 +17,19 @@ CHAT_MODEL = "llama-3.3-70b-versatile"
 
 
 class Message(BaseModel):
-    role: str
-    text: str
+    role: str = Field(pattern="^(user|model)\\Z")
+    text: str = Field(min_length=1, max_length=2000)
 
 
 class ChatRequest(BaseModel):
-    message: str
-    history: List[Message] = []
-    context: Optional[str] = None
+    message: str = Field(min_length=1, max_length=2000)
+    history: List[Message] = Field(default_factory=list, max_length=12)
+    context: Optional[str] = Field(default=None, max_length=500)
     language: str = "en"
 
 
 @router.post("/")
-async def chat_response(request: ChatRequest):
+async def chat_response(request: ChatRequest, current_user=Depends(get_current_user)):
     api_key = settings.GROQ_API_KEY
     if not api_key:
         raise HTTPException(status_code=503, detail="AI Service not configured")

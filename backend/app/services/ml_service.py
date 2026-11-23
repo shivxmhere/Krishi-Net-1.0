@@ -75,7 +75,7 @@ class MLService:
             "diseaseName": disease_raw.split("___")[1].replace("_", " "),
             "crop": disease_raw.split("___")[0],
             "confidence": round(confidence, 4),
-            "severity": "High" if confidence > 0.8 else "Medium" if confidence > 0.5 else "Low",
+            "severity": "Unknown",  # Class probability is not a measure of disease severity.
         }
 
 

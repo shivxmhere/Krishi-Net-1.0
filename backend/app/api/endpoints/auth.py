@@ -4,6 +4,9 @@ Authentication endpoints: signup, login (password + OTP), verify, resend.
 
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, Field
+from typing import Optional
+from app.core.security import get_current_user
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user import User
@@ -46,10 +49,7 @@ async def signup(request: SignUpRequest, db: Session = Depends(get_db)):
         db=db,
     )
 
-    # Auto-verify for now (Bypass OTP)
-    user.email_verified = True
-    user.phone_verified = True
-    db.commit()
+    # Email and phone remain unverified until ownership is actually proven.
 
     # Create access token immediately
     access_token = create_access_token(data={"sub": str(user.id)})
@@ -57,7 +57,7 @@ async def signup(request: SignUpRequest, db: Session = Depends(get_db)):
     return {
         "message": "Account created successfully.",
         "user_id": str(user.id),
-        "verification_required": False,  # Changed to False
+        "verification_required": True,
         "otp_sent": False,
         "access_token": access_token,
         "token_type": "bearer",
@@ -227,3 +227,41 @@ async def login_with_otp(request: OTPLoginRequest, db: Session = Depends(get_db)
 async def resend_otp(request: SendOTPRequest, db: Session = Depends(get_db)):
     """Resend OTP — delegates to send_login_otp."""
     return await send_login_otp(request, db)
+
+class ProfileUpdate(BaseModel):
+    full_name: Optional[str] = Field(default=None, min_length=2, max_length=100)
+    location: Optional[str] = Field(default=None, max_length=255)
+    is_onboarded: Optional[bool] = None
+
+
+def public_profile(user: User) -> dict:
+    return {
+        "id": str(user.id),
+        "full_name": user.full_name,
+        "email": user.email,
+        "phone": user.phone,
+        "location": user.location or "",
+        "is_onboarded": bool(user.is_onboarded),
+        "email_verified": bool(user.email_verified),
+        "phone_verified": bool(user.phone_verified),
+    }
+
+
+@router.get("/me")
+def read_profile(current_user: User = Depends(get_current_user)):
+    return public_profile(current_user)
+
+
+@router.patch("/me")
+def update_profile(
+    payload: ProfileUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    # Verified email and phone changes require a separate verification flow.
+    fields = payload.model_dump(exclude_unset=True)
+    for name, value in fields.items():
+        setattr(current_user, name, value)
+    db.commit()
+    db.refresh(current_user)
+    return public_profile(current_user)

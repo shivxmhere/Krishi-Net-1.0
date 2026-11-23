@@ -3,7 +3,7 @@ Weather proxy endpoint — forwards to Open-Meteo API.
 Keeps the API key-free Open-Meteo flow on the backend for future expansion.
 """
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, HTTPException
 import httpx
 
 router = APIRouter(prefix="/weather", tags=["Weather"])
@@ -30,10 +30,10 @@ def _get_condition(code: int) -> str:
 
 
 @router.get("/")
-async def get_weather(location: str = Query(..., description="Location name (city/district)")):
+async def get_weather(location: str = Query(..., min_length=2, max_length=100, description="Location name (city/district)")):
     """Get weather for a location using Open-Meteo (no API key needed)."""
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=12.0) as client:
         # 1. Geocode
         geo_resp = await client.get(
             "https://geocoding-api.open-meteo.com/v1/search",
@@ -42,7 +42,7 @@ async def get_weather(location: str = Query(..., description="Location name (cit
         geo_data = geo_resp.json()
 
         if not geo_data.get("results"):
-            return {"error": "Location not found"}
+            raise HTTPException(status_code=404, detail="Location not found")
 
         lat = geo_data["results"][0]["latitude"]
         lon = geo_data["results"][0]["longitude"]
@@ -62,7 +62,7 @@ async def get_weather(location: str = Query(..., description="Location name (cit
         data = weather_resp.json()
 
         if "current" not in data:
-            return {"error": "Weather data unavailable"}
+            raise HTTPException(status_code=503, detail="Weather data unavailable")
 
         forecast = []
         for i in range(1, len(data["daily"]["time"])):
@@ -73,6 +73,8 @@ async def get_weather(location: str = Query(..., description="Location name (cit
             })
 
         return {
+            "source": "Open-Meteo",
+            "observed_at": data["current"].get("time"),
             "temp": round(data["current"]["temperature_2m"]),
             "condition": _get_condition(data["current"]["weather_code"]),
             "humidity": data["current"]["relative_humidity_2m"],

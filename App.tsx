@@ -8,12 +8,15 @@ import MarketPrices from './components/MarketPrices';
 import FarmManager from './components/FarmManager';
 import History from './components/History';
 import Settings from './components/Settings';
+import Community from './components/Community';
+import Weather from './components/Weather';
+import Marketplace from './components/Marketplace';
 import Auth from './components/Auth';
 import Onboarding from './components/Onboarding';
 import Welcome from './components/Welcome';
 import SplashScreen from './components/SplashScreen';
 import { AppView, User } from './types';
-import { getCurrentUser, completeOnboarding } from './services/authService';
+import { restoreSession, completeOnboarding } from './services/authService';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { VoiceProvider } from './contexts/VoiceContext';
@@ -37,11 +40,9 @@ function AppContent() {
     }
 
     // 2. Check User Session
-    const storedUser = getCurrentUser();
-    if (storedUser) {
-      setUser(storedUser);
-    }
-    setLoading(false);
+    restoreSession().then((storedUser) => {
+      if (storedUser) setUser(storedUser);
+    }).finally(() => setLoading(false));
   }, []);
 
   const handleTourComplete = () => {
@@ -70,7 +71,7 @@ function AppContent() {
       case AppView.DASHBOARD:
         return <Dashboard setView={setView} />;
       case AppView.DISEASE_DETECTION:
-        return <DiseaseDetector />;
+        return <DiseaseDetector setView={setView} />;
       case AppView.ADVISORY:
         return <AdvisoryChat />;
       case AppView.MARKET:
@@ -79,6 +80,12 @@ function AppContent() {
         return <FarmManager />;
       case AppView.HISTORY:
         return <History />;
+      case AppView.WEATHER:
+        return <Weather />;
+      case AppView.COMMUNITY:
+        return <Community />;
+      case AppView.MARKETPLACE:
+        return <Marketplace />;
       case AppView.SETTINGS:
         return <Settings onUpdateUser={handleUserUpdate} />;
       default:

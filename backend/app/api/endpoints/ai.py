@@ -5,10 +5,11 @@ Serves frontend functions that previously called Gemini directly.
 
 import json
 import httpx
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, Depends
+from pydantic import BaseModel, Field
 from typing import Optional
 from app.core.config import settings
+from app.core.security import get_current_user
 
 router = APIRouter(prefix="/ai", tags=["AI"])
 
@@ -17,14 +18,14 @@ TEXT_MODEL = "llama-3.3-70b-versatile"
 
 
 class GenerateRequest(BaseModel):
-    prompt: str
+    prompt: str = Field(min_length=1, max_length=5000)
     json_mode: bool = False
-    max_tokens: int = 1024
-    temperature: float = 0.5
+    max_tokens: int = Field(default=1024, ge=32, le=2048)
+    temperature: float = Field(default=0.5, ge=0, le=1)
 
 
 @router.post("/generate")
-async def generate_text(request: GenerateRequest):
+async def generate_text(request: GenerateRequest, current_user=Depends(get_current_user)):
     api_key = settings.GROQ_API_KEY
     if not api_key:
         raise HTTPException(status_code=503, detail="AI Service not configured")

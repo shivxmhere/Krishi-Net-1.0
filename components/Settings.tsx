@@ -20,22 +20,23 @@ const Settings: React.FC<SettingsProps> = ({ onUpdateUser }) => {
   // Form State
   const [name, setName] = useState(user?.name || '');
   const [location, setLocation] = useState(user?.location || '');
-  const [email, setEmail] = useState(user?.email || '');
+  const [email] = useState(user?.email || '');
+  const [error, setError] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
 
   const handleSave = async () => {
     if (user) {
       setLoading(true);
       try {
-        const updatedUser = { ...user, name, location, email };
-        await updateUserProfile(updatedUser);
+        setError('');
+        const updatedUser = await updateUserProfile({ ...user, name, location });
         setUser(updatedUser);
         onUpdateUser(updatedUser);
         setShowSuccess(true);
         if (navigator.vibrate) navigator.vibrate([10, 30]);
         setTimeout(() => setShowSuccess(false), 3000);
       } catch (e) {
-        console.error("Failed to update settings");
+        setError("Could not save changes. Check your connection and try again.");
       } finally {
         setLoading(false);
       }
@@ -96,10 +97,11 @@ const Settings: React.FC<SettingsProps> = ({ onUpdateUser }) => {
 
             <div className="space-y-2">
               <label className="text-sm font-bold text-earth-soil dark:text-gray-400 ml-1">Email Address</label>
+              <p className="text-xs text-gray-500">Email changes require a verified account recovery process and are currently disabled.</p>
               <div className="relative">
                 <Mail className="absolute left-4 top-4 w-5 h-5 text-gray-400" />
                 <input
-                  type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                  type="email" value={email} readOnly aria-label="Verified account email (read-only)"
                   className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-black/20 border border-glass-border rounded-xl font-bold outline-none focus:ring-2 focus:ring-harvest-green dark:text-white transition-all"
                 />
               </div>
@@ -117,6 +119,7 @@ const Settings: React.FC<SettingsProps> = ({ onUpdateUser }) => {
             </div>
           </div>
 
+          {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
           <div className="pt-4">
             <Button onClick={handleSave} disabled={loading} className="w-full py-4 text-lg shadow-sm bg-green-600 hover:bg-green-700 text-white border-0 rounded-xl">
               {loading ? <Loader2 className="animate-spin" /> : <><Save className="mr-2" /> {t('saveChanges')}</>}
