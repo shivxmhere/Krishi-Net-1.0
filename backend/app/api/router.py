@@ -3,7 +3,7 @@ Central API router that aggregates all endpoint routers.
 """
 
 from fastapi import APIRouter
-from app.api.endpoints import auth, crops, weather, predict, chat, market, ai
+from app.api.endpoints import auth, crops, weather, predict, chat, market, ai, ecosystem
 
 api_router = APIRouter()
 
@@ -14,3 +14,5 @@ api_router.include_router(predict.router)
 api_router.include_router(chat.router)
 api_router.include_router(market.router)
 api_router.include_router(ai.router)
+
+api_router.include_router(ecosystem.router)
