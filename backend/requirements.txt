@@ -17,7 +17,7 @@ alembic==1.13.1
 gunicorn==21.2.0
 
 # ── Optional (install separately if needed) ──
-# psycopg2-binary==2.9.9   # Only for PostgreSQL (SQLite used by default)
+psycopg2-binary==2.9.10   # Managed PostgreSQL support
 # tensorflow-cpu==2.15.0   # Only for ML disease detection model
 # twilio==8.13.0           # Only for SMS OTP delivery
 
